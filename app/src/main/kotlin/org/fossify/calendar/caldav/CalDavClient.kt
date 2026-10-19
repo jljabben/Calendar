@@ -1,12 +1,12 @@
 package org.fossify.calendar.caldav
 
 import at.bitfire.dav4jvm.Property
-import at.bitfire.dav4jvm.WebDAV
-import at.bitfire.dav4jvm.CalDAV
-import at.bitfire.dav4jvm.Response
-import at.bitfire.dav4jvm.DavCalendar
-import at.bitfire.dav4jvm.DavCollection
-import at.bitfire.dav4jvm.DavResource
+import at.bitfire.dav4jvm.property.caldav.CalDAV
+import at.bitfire.dav4jvm.property.webdav.WebDAV
+import at.bitfire.dav4jvm.ktor.DavCalendar
+import at.bitfire.dav4jvm.ktor.DavCollection
+import at.bitfire.dav4jvm.ktor.DavResource
+import at.bitfire.dav4jvm.ktor.Response
 import at.bitfire.dav4jvm.property.caldav.CalendarColor
 import at.bitfire.dav4jvm.property.caldav.CalendarData
 import at.bitfire.dav4jvm.property.caldav.CalendarHomeSet
