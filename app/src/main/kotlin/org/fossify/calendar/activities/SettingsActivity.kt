@@ -11,6 +11,7 @@ import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
 import org.fossify.calendar.R
 import org.fossify.calendar.databinding.ActivitySettingsBinding
+import org.fossify.calendar.dialogs.CalDavAccountDialog
 import org.fossify.calendar.dialogs.ExportEventsDialog
 import org.fossify.calendar.dialogs.ManageAutomaticBackupsDialog
 import org.fossify.calendar.dialogs.ManageSyncedCalendarsDialog
@@ -205,6 +206,7 @@ class SettingsActivity : SimpleActivity() {
         setupLoopReminders()
         setupSnoozeTime()
         setupCaldavSync()
+        setupCaldavAccount()
         setupManageSyncedCalendars()
         setupDefaultStartTime()
         setupDefaultDuration()
@@ -387,6 +389,14 @@ class SettingsActivity : SimpleActivity() {
         settingsCaldavPullToRefreshHolder.setOnClickListener {
             settingsCaldavPullToRefresh.toggle()
             config.pullToRefresh = settingsCaldavPullToRefresh.isChecked
+        }
+    }
+
+    private fun setupCaldavAccount() = binding.apply {
+        settingsCaldavManageAccountHolder.setOnClickListener {
+            CalDavAccountDialog(this@SettingsActivity) {
+                toast(R.string.synchronization_completed)
+            }
         }
     }
 

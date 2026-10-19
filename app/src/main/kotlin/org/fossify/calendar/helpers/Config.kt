@@ -16,6 +16,22 @@ class Config(context: Context) : BaseConfig(context) {
         fun newInstance(context: Context) = Config(context)
     }
 
+    var caldavDirectSync: Boolean
+        get() = prefs.getBoolean(CALDAV_DIRECT_SYNC, false)
+        set(enabled) = prefs.edit().putBoolean(CALDAV_DIRECT_SYNC, enabled).apply()
+
+    var caldavServerUrl: String
+        get() = prefs.getString(CALDAV_SERVER_URL, "") ?: ""
+        set(url) = prefs.edit().putString(CALDAV_SERVER_URL, url).apply()
+
+    var caldavUsername: String
+        get() = prefs.getString(CALDAV_USERNAME, "") ?: ""
+        set(username) = prefs.edit().putString(CALDAV_USERNAME, username).apply()
+
+    var caldavPassword: String
+        get() = prefs.getString(CALDAV_PASSWORD, "") ?: ""
+        set(password) = prefs.edit().putString(CALDAV_PASSWORD, password).apply()
+
     var showWeekNumbers: Boolean
         get() = prefs.getBoolean(WEEK_NUMBERS, false)
         set(showWeekNumbers) = prefs.edit().putBoolean(WEEK_NUMBERS, showWeekNumbers).apply()
