@@ -38,8 +38,10 @@ object IcsSyncMapper {
         } catch (_: Exception) {
             return null
         }
-        val event = calendar.getComponents().filterIsInstance<VEvent>().firstOrNull()
-        val todo = calendar.getComponents().filterIsInstance<VToDo>().firstOrNull()
+        val components: List<net.fortuna.ical4j.model.CalendarComponent> =
+            calendar.getComponents()
+        val event = components.filterIsInstance<VEvent>().firstOrNull()
+        val todo = components.filterIsInstance<VToDo>().firstOrNull()
         val component = (event ?: todo) ?: return null
         val uid = component.prop<Property>(Property.UID)?.value ?: return null
         val isTask = component is VToDo
