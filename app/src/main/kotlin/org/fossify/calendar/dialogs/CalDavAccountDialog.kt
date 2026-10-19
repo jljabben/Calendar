@@ -58,7 +58,9 @@ class CalDavAccountDialog(
         ensureBackgroundThread {
             val account = DavAccount(url, username, password)
             try {
-                org.fossify.calendar.caldav.CalDavClient(account).discoverHomeSet()
+                kotlinx.coroutines.runBlocking {
+                    org.fossify.calendar.caldav.CalDavClient(account).discoverHomeSet()
+                }
                 activity.runOnUiThread {
                     onSuccess()
                 }

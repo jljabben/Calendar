@@ -1,6 +1,7 @@
 package org.fossify.calendar.caldav
 
 import net.fortuna.ical4j.model.Calendar
+import net.fortuna.ical4j.model.Component
 import net.fortuna.ical4j.model.Property
 import net.fortuna.ical4j.model.component.CalendarComponent
 import net.fortuna.ical4j.model.component.VEvent
