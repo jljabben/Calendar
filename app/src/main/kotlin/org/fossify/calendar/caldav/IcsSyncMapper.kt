@@ -75,36 +75,57 @@ object IcsSyncMapper {
 
 object Timestamps {
 
-    fun isDateValue(value: String): Boolean = Regex("^\\d{8}$").matches(value.trim())
+    private const val DATE_PATTERN = "^\\d{8}$"
+    private const val DATE_TIME_PATTERN = "^\\d{8}T\\d{6}Z?$"
+    private const val YEAR_START = 0
+    private const val YEAR_END = 4
+    private const val MONTH_START = 4
+    private const val MONTH_END = 6
+    private const val DAY_START = 6
+    private const val DAY_END = 8
+    private const val HOUR_START = 9
+    private const val HOUR_END = 11
+    private const val MINUTE_START = 11
+    private const val MINUTE_END = 13
+    private const val SECOND_START = 13
+    private const val SECOND_END = 15
+
+    fun isDateValue(value: String): Boolean = Regex(DATE_PATTERN).matches(value.trim())
 
     fun parse(value: String): Long? {
         val trimmed = value.trim()
         return try {
             when {
-                isDateValue(trimmed) -> {
-                    val date = java.time.LocalDate.of(
-                        trimmed.substring(0, 4).toInt(),
-                        trimmed.substring(4, 6).toInt(),
-                        trimmed.substring(6, 8).toInt(),
-                    )
-                    date.atStartOfDay(java.time.ZoneOffset.UTC).toEpochSecond()
-                }
-                Regex("^\\d{8}T\\d{6}Z?$").matches(trimmed) -> {
-                    val cleaned = trimmed.removeSuffix("Z")
-                    val dateTime = java.time.LocalDateTime.of(
-                        cleaned.substring(0, 4).toInt(),
-                        cleaned.substring(4, 6).toInt(),
-                        cleaned.substring(6, 8).toInt(),
-                        cleaned.substring(9, 11).toInt(),
-                        cleaned.substring(11, 13).toInt(),
-                        cleaned.substring(13, 15).toInt(),
-                    )
-                    dateTime.toInstant(java.time.ZoneOffset.UTC).epochSecond
-                }
+                isDateValue(trimmed) -> parseDate(trimmed)
+                Regex(DATE_TIME_PATTERN).matches(trimmed) -> parseDateTime(trimmed)
                 else -> null
             }
-        } catch (_: Exception) {
+        } catch (_: java.time.DateTimeException) {
+            null
+        } catch (_: NumberFormatException) {
             null
         }
+    }
+
+    private fun parseDate(trimmed: String): Long {
+        val date = java.time.LocalDate.of(
+            trimmed.substring(YEAR_START, YEAR_END).toInt(),
+            trimmed.substring(MONTH_START, MONTH_END).toInt(),
+            trimmed.substring(DAY_START, DAY_END).toInt(),
+        )
+        return date.atStartOfDay(java.time.ZoneOffset.UTC).toEpochSecond()
+    }
+
+    private fun parseDateTime(trimmed: String): Long {
+        val cleaned = trimmed.removeSuffix("Z")
+        val dateTime = java.time.LocalDateTime.of(
+            cleaned.substring(YEAR_START, YEAR_END).toInt(),
+            cleaned.substring(MONTH_START, MONTH_END).toInt(),
+            cleaned.substring(DAY_START, DAY_END).toInt(),
+            cleaned.substring(HOUR_START, HOUR_END).toInt(),
+            cleaned.substring(MINUTE_START, MINUTE_END).toInt(),
+            cleaned.substring(SECOND_START, SECOND_END).toInt(),
+        )
+        return dateTime.toInstant(java.time.ZoneOffset.UTC).epochSecond
     }
 }

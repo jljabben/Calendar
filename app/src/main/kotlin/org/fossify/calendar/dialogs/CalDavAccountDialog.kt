@@ -11,7 +11,9 @@ import org.fossify.commons.extensions.setupDialogStuff
 import org.fossify.commons.extensions.toast
 import org.fossify.commons.extensions.value
 import org.fossify.commons.extensions.viewBinding
+import org.fossify.commons.extensions.showErrorToast
 import org.fossify.commons.helpers.ensureBackgroundThread
+import java.io.IOException
 
 class CalDavAccountDialog(
     private val activity: SimpleActivity,
@@ -60,7 +62,18 @@ class CalDavAccountDialog(
                 activity.runOnUiThread {
                     onSuccess()
                 }
-            } catch (e: Exception) {
+            } catch (e: IOException) {
+                activity.showErrorToast(e)
+                activity.runOnUiThread {
+                    activity.toast(R.string.caldav_connection_failed)
+                }
+            } catch (e: at.bitfire.dav4jvm.ktor.exception.DavException) {
+                activity.showErrorToast(e)
+                activity.runOnUiThread {
+                    activity.toast(R.string.caldav_connection_failed)
+                }
+            } catch (e: at.bitfire.dav4jvm.ktor.exception.HttpException) {
+                activity.showErrorToast(e)
                 activity.runOnUiThread {
                     activity.toast(R.string.caldav_connection_failed)
                 }

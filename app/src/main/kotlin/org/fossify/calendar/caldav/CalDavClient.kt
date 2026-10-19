@@ -1,5 +1,6 @@
 package org.fossify.calendar.caldav
 
+import at.bitfire.dav4jvm.Property
 import at.bitfire.dav4jvm.property.caldav.CalendarColor
 import at.bitfire.dav4jvm.property.caldav.CalendarData
 import at.bitfire.dav4jvm.property.caldav.CalendarHomeSet
@@ -9,10 +10,10 @@ import at.bitfire.dav4jvm.property.webdav.CurrentUserPrincipal
 import at.bitfire.dav4jvm.property.webdav.DisplayName
 import at.bitfire.dav4jvm.property.webdav.GetETag
 import at.bitfire.dav4jvm.property.webdav.ResourceType
-import at.bitfire.dav4jvm.ktor.DavCalendar
-import at.bitfire.dav4jvm.ktor.DavCollection
-import at.bitfire.dav4jvm.ktor.DavResource
-import at.bitfire.dav4jvm.ktor.responses
+import at.bitfire.dav4jvm.DavCollection
+import at.bitfire.dav4jvm.DavCalendar
+import at.bitfire.dav4jvm.DavResource
+import at.bitfire.dav4jvm.Response
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.auth.Auth
@@ -43,13 +44,11 @@ data class RemoteResource(
 /**
  * CalDAV access layer built on dav4jvm (bitfire SMC, the DAVx5 authors).
  * Handles discovery, calendar listing and calendar-query REPORTs.
- * dav4jvm registers its default property factories itself.
  */
 class CalDavClient(private val account: DavAccount) {
 
     private fun createHttpClient(): HttpClient = HttpClient(OkHttp) {
         followRedirects = false
-        expectSuccess = false
         install(Auth) {
             basic {
                 credentials { BasicAuthCredentials(account.username, account.password) }
@@ -69,48 +68,27 @@ class CalDavClient(private val account: DavAccount) {
         val client = createHttpClient()
         val homeSetUrl = discoverHomeSet()
         val collection = DavCollection(client, homeSetUrl)
-        val responses = collection.propfind(
+        val calendars = mutableListOf<RemoteCalendar>()
+        collection.propfind(
             depth = 1,
             DisplayName.NAME,
             ResourceType.NAME,
             CalendarColor.NAME,
             SupportedCalendarComponentSet.NAME,
-        ).responses().toList()
-        return responses.mapNotNull { response ->
-            val isCalendar = response.properties
-                .filterIsInstance<ResourceType>()
-                .firstOrNull()
-                ?.types
-                ?.contains(CalDAVProperty.Calendar)
-                ?: false
-            if (!isCalendar || !response.isSuccess()) {
-                return@mapNotNull null
+        ) { response, _ ->
+            val calendar = toRemoteCalendar(response)
+            if (calendar != null) {
+                calendars.add(calendar)
             }
-            val displayName = response.properties
-                .filterIsInstance<DisplayName>()
-                .firstOrNull()?.displayName
-                ?: response.hrefName()
-            val color = response.properties
-                .filterIsInstance<CalendarColor>()
-                .firstOrNull()?.color
-            val componentSet = response.properties
-                .filterIsInstance<SupportedCalendarComponentSet>()
-                .firstOrNull()
-            RemoteCalendar(
-                url = response.href,
-                displayName = displayName,
-                colorArgb = color,
-                supportsEvents = componentSet?.supportsEvents ?: true,
-                supportsTasks = componentSet?.supportsTasks ?: false,
-            )
         }
+        return calendars
     }
 
     suspend fun listEvents(calendar: RemoteCalendar): List<RemoteResource> =
-        queryComponents(calendar, "VEVENT")
+        queryComponents(calendar, COMPONENT_EVENT)
 
     suspend fun listTasks(calendar: RemoteCalendar): List<RemoteResource> =
-        queryComponents(calendar, "VTODO")
+        queryComponents(calendar, COMPONENT_TASK)
 
     private suspend fun queryComponents(
         calendar: RemoteCalendar,
@@ -124,47 +102,72 @@ class CalDavClient(private val account: DavAccount) {
             start = null,
             end = null,
             props = setOf(GetETag.NAME, CalendarData.NAME),
-        ).responses().collect { response ->
-            if (!response.isSuccess()) {
-                return@collect
-            }
-            val etag = response.properties
-                .filterIsInstance<GetETag>()
-                .firstOrNull()?.etag
-            val ical = response.properties
-                .filterIsInstance<CalendarData>()
-                .firstOrNull()?.iCalendar
-            if (!ical.isNullOrBlank()) {
-                resources.add(RemoteResource(response.href, etag, ical))
+        ) { response, _ ->
+            val resource = toRemoteResource(response)
+            if (resource != null) {
+                resources.add(resource)
             }
         }
         return resources
     }
 
+    private fun toRemoteCalendar(response: Response): RemoteCalendar? {
+        val resourceType = response.get(ResourceType::class.java) ?: return null
+        if (!resourceType.types.contains(CalDAVProperty.Calendar)) {
+            return null
+        }
+        if (!response.isSuccess()) {
+            return null
+        }
+        val displayName = response.get(DisplayName::class.java)?.displayName
+            ?: response.hrefName()
+        val color = response.get(CalendarColor::class.java)?.color
+        val componentSet = response.get(SupportedCalendarComponentSet::class.java)
+        return RemoteCalendar(
+            url = response.href,
+            displayName = displayName,
+            colorArgb = color,
+            supportsEvents = componentSet?.supportsEvents ?: true,
+            supportsTasks = componentSet?.supportsTasks ?: false,
+        )
+    }
+
+    private fun toRemoteResource(response: Response): RemoteResource? {
+        if (!response.isSuccess()) {
+            return null
+        }
+        val etag = response.get(GetETag::class.java)?.eTag
+        val ical = response.get(CalendarData::class.java)?.iCalendar
+        if (ical.isNullOrBlank()) {
+            return null
+        }
+        return RemoteResource(response.href, etag, ical)
+    }
+
     private suspend fun findPrincipalUrl(client: HttpClient, baseUrl: Url): Url {
         val resource = DavResource(client, baseUrl)
-        val principalHref = resource.propfind(depth = 0, CurrentUserPrincipal.NAME)
-            .responses()
-            .firstOrNull()
-            ?.properties
-            ?.filterIsInstance<CurrentUserPrincipal>()
-            ?.firstOrNull()
-            ?.href
-            ?: return baseUrl
-        return Url(principalHref)
+        var principalHref: String? = null
+        resource.propfind(depth = 0, CurrentUserPrincipal.NAME) { response, _ ->
+            if (principalHref == null) {
+                principalHref = response.get(CurrentUserPrincipal::class.java)?.href
+            }
+        }
+        return principalHref?.let { Url(it) } ?: baseUrl
     }
 
     private suspend fun findCalendarHomeSet(client: HttpClient, principalUrl: Url): Url {
         val collection = DavCollection(client, principalUrl)
-        val homeSetHref = collection.propfind(depth = 0, CalendarHomeSet.NAME)
-            .responses()
-            .firstOrNull()
-            ?.properties
-            ?.filterIsInstance<CalendarHomeSet>()
-            ?.firstOrNull()
-            ?.hrefs
-            ?.firstOrNull()
-            ?: return principalUrl
-        return Url(homeSetHref)
+        var homeSetHref: String? = null
+        collection.propfind(depth = 0, CalendarHomeSet.NAME) { response, _ ->
+            if (homeSetHref == null) {
+                homeSetHref = response.get(CalendarHomeSet::class.java)?.hrefs?.firstOrNull()
+            }
+        }
+        return homeSetHref?.let { Url(it) } ?: principalUrl
+    }
+
+    companion object {
+        const val COMPONENT_EVENT = "VEVENT"
+        const val COMPONENT_TASK = "VTODO"
     }
 }
