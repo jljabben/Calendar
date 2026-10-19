@@ -1,19 +1,20 @@
 package org.fossify.calendar.caldav
 
 import at.bitfire.dav4jvm.Property
+import at.bitfire.dav4jvm.WebDAV
+import at.bitfire.dav4jvm.CalDAV
+import at.bitfire.dav4jvm.Response
+import at.bitfire.dav4jvm.DavCalendar
+import at.bitfire.dav4jvm.DavCollection
+import at.bitfire.dav4jvm.DavResource
 import at.bitfire.dav4jvm.property.caldav.CalendarColor
 import at.bitfire.dav4jvm.property.caldav.CalendarData
 import at.bitfire.dav4jvm.property.caldav.CalendarHomeSet
 import at.bitfire.dav4jvm.property.caldav.SupportedCalendarComponentSet
-import at.bitfire.dav4jvm.property.caldav.CalDAV as CalDAVProperty
 import at.bitfire.dav4jvm.property.webdav.CurrentUserPrincipal
 import at.bitfire.dav4jvm.property.webdav.DisplayName
 import at.bitfire.dav4jvm.property.webdav.GetETag
 import at.bitfire.dav4jvm.property.webdav.ResourceType
-import at.bitfire.dav4jvm.DavCollection
-import at.bitfire.dav4jvm.DavCalendar
-import at.bitfire.dav4jvm.DavResource
-import at.bitfire.dav4jvm.Response
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.auth.Auth
@@ -71,15 +72,12 @@ class CalDavClient(private val account: DavAccount) {
         val calendars = mutableListOf<RemoteCalendar>()
         collection.propfind(
             depth = 1,
-            DisplayName.NAME,
-            ResourceType.NAME,
-            CalendarColor.NAME,
-            SupportedCalendarComponentSet.NAME,
+            WebDAV.DisplayName,
+            WebDAV.ResourceType,
+            CalDAV.CalendarColor,
+            CalDAV.SupportedCalendarComponentSet,
         ) { response, _ ->
-            val calendar = toRemoteCalendar(response)
-            if (calendar != null) {
-                calendars.add(calendar)
-            }
+            toRemoteCalendar(response)?.let { calendars.add(it) }
         }
         return calendars
     }
@@ -101,19 +99,16 @@ class CalDavClient(private val account: DavAccount) {
             component = component,
             start = null,
             end = null,
-            props = setOf(GetETag.NAME, CalendarData.NAME),
+            props = setOf(WebDAV.GetETag, CalDAV.CalendarData),
         ) { response, _ ->
-            val resource = toRemoteResource(response)
-            if (resource != null) {
-                resources.add(resource)
-            }
+            toRemoteResource(response)?.let { resources.add(it) }
         }
         return resources
     }
 
     private fun toRemoteCalendar(response: Response): RemoteCalendar? {
         val resourceType = response.get(ResourceType::class.java) ?: return null
-        if (!resourceType.types.contains(CalDAVProperty.Calendar)) {
+        if (!resourceType.types.contains(CalDAV.Calendar)) {
             return null
         }
         if (!response.isSuccess()) {
@@ -147,7 +142,7 @@ class CalDavClient(private val account: DavAccount) {
     private suspend fun findPrincipalUrl(client: HttpClient, baseUrl: Url): Url {
         val resource = DavResource(client, baseUrl)
         var principalHref: String? = null
-        resource.propfind(depth = 0, CurrentUserPrincipal.NAME) { response, _ ->
+        resource.propfind(depth = 0, WebDAV.CurrentUserPrincipal) { response, _ ->
             if (principalHref == null) {
                 principalHref = response.get(CurrentUserPrincipal::class.java)?.href
             }
@@ -158,7 +153,7 @@ class CalDavClient(private val account: DavAccount) {
     private suspend fun findCalendarHomeSet(client: HttpClient, principalUrl: Url): Url {
         val collection = DavCollection(client, principalUrl)
         var homeSetHref: String? = null
-        collection.propfind(depth = 0, CalendarHomeSet.NAME) { response, _ ->
+        collection.propfind(depth = 0, CalDAV.CalendarHomeSet) { response, _ ->
             if (homeSetHref == null) {
                 homeSetHref = response.get(CalendarHomeSet::class.java)?.hrefs?.firstOrNull()
             }
