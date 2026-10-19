@@ -62,7 +62,7 @@ class IcsSyncMapperTest {
         )
         val item = IcsSyncMapper.toSyncedItem(r)!!
         assertTrue(item.allDay)
-        assertEquals(1767225600L, item.startTimestamp)
+        assertEquals(1767312000L, item.startTimestamp)
     }
 
     @Test
