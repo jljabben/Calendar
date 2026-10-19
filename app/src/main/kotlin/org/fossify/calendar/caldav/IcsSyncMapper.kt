@@ -1,6 +1,7 @@
 package org.fossify.calendar.caldav
 
 import net.fortuna.ical4j.model.Calendar
+import net.fortuna.ical4j.model.CalendarComponent
 import net.fortuna.ical4j.model.Component
 import net.fortuna.ical4j.model.Property
 import net.fortuna.ical4j.model.component.VEvent
@@ -38,8 +39,7 @@ object IcsSyncMapper {
         } catch (_: Exception) {
             return null
         }
-        val components: List<net.fortuna.ical4j.model.CalendarComponent> =
-            calendar.getComponents()
+        val components: List<CalendarComponent> = calendar.getComponents()
         val event = components.filterIsInstance<VEvent>().firstOrNull()
         val todo = components.filterIsInstance<VToDo>().firstOrNull()
         val component = (event ?: todo) ?: return null

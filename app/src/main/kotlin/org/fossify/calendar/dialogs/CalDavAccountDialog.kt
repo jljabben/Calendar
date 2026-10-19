@@ -30,8 +30,8 @@ class CalDavAccountDialog(
         }
 
         activity.getAlertDialogBuilder()
-            .setPositiveButton(R.string.ok, null)
-            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(org.fossify.commons.R.string.ok, null)
+            .setNegativeButton(org.fossify.commons.R.string.cancel, null)
             .apply {
                 activity.setupDialogStuff(binding.root, this) { alertDialog ->
                     alertDialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
