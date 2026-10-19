@@ -1,20 +1,17 @@
 package org.fossify.calendar.caldav
 
-import at.bitfire.dav4jvm.Property
-import at.bitfire.dav4jvm.PropertyRegistry
 import at.bitfire.dav4jvm.property.caldav.CalendarColor
 import at.bitfire.dav4jvm.property.caldav.CalendarData
 import at.bitfire.dav4jvm.property.caldav.CalendarHomeSet
 import at.bitfire.dav4jvm.property.caldav.SupportedCalendarComponentSet
+import at.bitfire.dav4jvm.property.caldav.CalDAV as CalDAVProperty
+import at.bitfire.dav4jvm.property.webdav.CurrentUserPrincipal
 import at.bitfire.dav4jvm.property.webdav.DisplayName
 import at.bitfire.dav4jvm.property.webdav.GetETag
 import at.bitfire.dav4jvm.property.webdav.ResourceType
-import at.bitfire.dav4jvm.property.webdav.CurrentUserPrincipal
 import at.bitfire.dav4jvm.ktor.DavCalendar
 import at.bitfire.dav4jvm.ktor.DavCollection
 import at.bitfire.dav4jvm.ktor.DavResource
-import at.bitfire.dav4jvm.ktor.MultiStatusItem
-import at.bitfire.dav4jvm.ktor.exception.HttpException
 import at.bitfire.dav4jvm.ktor.responses
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -22,10 +19,6 @@ import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.providers.BasicAuthCredentials
 import io.ktor.client.plugins.auth.providers.basic
 import io.ktor.http.Url
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.map
 
 data class DavAccount(
     val serverUrl: String,
@@ -50,47 +43,31 @@ data class RemoteResource(
 /**
  * CalDAV access layer built on dav4jvm (bitfire SMC, the DAVx5 authors).
  * Handles discovery, calendar listing and calendar-query REPORTs.
+ * dav4jvm registers its default property factories itself.
  */
-class DavClientFactory {
-
-    fun createHttpClient(account: DavAccount): HttpClient {
-        val client = HttpClient(OkHttp) {
-            followRedirects = false
-            expectSuccess = false
-            install(Auth) {
-                basic {
-                    credentials { BasicAuthCredentials(account.username, account.password) }
-                    sendWithoutRequest { true }
-                }
-            }
-        }
-        return client
-    }
-
-    companion object {
-        init {
-            PropertyRegistry.register(CalendarColor.Factory)
-            PropertyRegistry.register(CalendarData.Factory)
-            PropertyRegistry.register(CalendarHomeSet.Factory)
-            PropertyRegistry.register(SupportedCalendarComponentSet.Factory)
-        }
-    }
-}
-
 class CalDavClient(private val account: DavAccount) {
 
-    private val factory = DavClientFactory()
+    private fun createHttpClient(): HttpClient = HttpClient(OkHttp) {
+        followRedirects = false
+        expectSuccess = false
+        install(Auth) {
+            basic {
+                credentials { BasicAuthCredentials(account.username, account.password) }
+                sendWithoutRequest { true }
+            }
+        }
+    }
 
-    suspend fun discoverHomeSet(httpClient: HttpClient? = null): Url {
-        val client = httpClient ?: factory.createHttpClient(account)
+    suspend fun discoverHomeSet(): Url {
+        val client = createHttpClient()
         val baseUrl = Url(account.serverUrl)
         val principalUrl = findPrincipalUrl(client, baseUrl)
         return findCalendarHomeSet(client, principalUrl)
     }
 
-    suspend fun listCalendars(homeSet: Url? = null): List<RemoteCalendar> {
-        val client = factory.createHttpClient(account)
-        val homeSetUrl = homeSet ?: discoverHomeSet(client)
+    suspend fun listCalendars(): List<RemoteCalendar> {
+        val client = createHttpClient()
+        val homeSetUrl = discoverHomeSet()
         val collection = DavCollection(client, homeSetUrl)
         val responses = collection.propfind(
             depth = 1,
@@ -100,9 +77,12 @@ class CalDavClient(private val account: DavAccount) {
             SupportedCalendarComponentSet.NAME,
         ).responses().toList()
         return responses.mapNotNull { response ->
-            val isCalendar = response.properties.any { property ->
-                property is ResourceType && property.xml.toString().contains("calendar")
-            }
+            val isCalendar = response.properties
+                .filterIsInstance<ResourceType>()
+                .firstOrNull()
+                ?.types
+                ?.contains(CalDAVProperty.Calendar)
+                ?: false
             if (!isCalendar || !response.isSuccess()) {
                 return@mapNotNull null
             }
@@ -112,7 +92,7 @@ class CalDavClient(private val account: DavAccount) {
                 ?: response.hrefName()
             val color = response.properties
                 .filterIsInstance<CalendarColor>()
-                .firstOrNull()?.color?.let { ColorParser.toArgb(it) }
+                .firstOrNull()?.color
             val componentSet = response.properties
                 .filterIsInstance<SupportedCalendarComponentSet>()
                 .firstOrNull()
@@ -126,21 +106,17 @@ class CalDavClient(private val account: DavAccount) {
         }
     }
 
-    suspend fun listEvents(calendar: RemoteCalendar): List<RemoteResource> {
-        val client = factory.createHttpClient(account)
-        return queryComponents(client, calendar, "VEVENT")
-    }
+    suspend fun listEvents(calendar: RemoteCalendar): List<RemoteResource> =
+        queryComponents(calendar, "VEVENT")
 
-    suspend fun listTasks(calendar: RemoteCalendar): List<RemoteResource> {
-        val client = factory.createHttpClient(account)
-        return queryComponents(client, calendar, "VTODO")
-    }
+    suspend fun listTasks(calendar: RemoteCalendar): List<RemoteResource> =
+        queryComponents(calendar, "VTODO")
 
     private suspend fun queryComponents(
-        client: HttpClient,
         calendar: RemoteCalendar,
         component: String,
     ): List<RemoteResource> {
+        val client = createHttpClient()
         val davCalendar = DavCalendar(client, calendar.url)
         val resources = mutableListOf<RemoteResource>()
         davCalendar.calendarQuery(
@@ -171,10 +147,10 @@ class CalDavClient(private val account: DavAccount) {
             .responses()
             .firstOrNull()
             ?.properties
-            ?.filterIsInstance<at.bitfire.dav4jvm.property.webdav.CurrentUserPrincipal>()
+            ?.filterIsInstance<CurrentUserPrincipal>()
             ?.firstOrNull()
             ?.href
-            ?: baseUrl
+            ?: return baseUrl
         return Url(principalHref)
     }
 
@@ -188,18 +164,7 @@ class CalDavClient(private val account: DavAccount) {
             ?.firstOrNull()
             ?.hrefs
             ?.firstOrNull()
-            ?: principalUrl
+            ?: return principalUrl
         return Url(homeSetHref)
-    }
-}
-
-object ColorParser {
-    fun toArgb(color: String): Int? {
-        val hex = color.removePrefix("#")
-        val rgb = hex.take(6)
-        if (rgb.length != 6 || rgb.any { Character.digit(it, 16) == -1 }) {
-            return null
-        }
-        return rgb.toInt(16) or 0xFF000000.toInt()
     }
 }

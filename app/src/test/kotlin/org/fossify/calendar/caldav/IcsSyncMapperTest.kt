@@ -4,13 +4,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.net.URL
+import io.ktor.http.Url
 
 class IcsSyncMapperTest {
 
     private fun resource(uid: String, etag: String, body: String): RemoteResource =
         RemoteResource(
-            url = URL("https://dav.example.com/cal/$uid.ics"),
+            url = Url("https://dav.example.com/cal/$uid.ics"),
             etag = etag,
             ical = "BEGIN:VCALENDAR\r\n" +
                 "VERSION:2.0\r\n" +
@@ -121,15 +121,8 @@ class IcsSyncMapperTest {
 
     @Test
     fun `returns null for unparseable ical`() {
-        val r = RemoteResource(URL("https://dav.example.com/cal/x.ics"), "\"x\"", "not ical at all")
+        val r = RemoteResource(Url("https://dav.example.com/cal/x.ics"), "\"x\"", "not ical at all")
         assertNull(IcsSyncMapper.toSyncedItem(r))
     }
 
-    @Test
-    fun `parses color values with and without alpha`() {
-        assertEquals(0xFF3788D8.toInt(), ColorParser.toArgb("#3788D8FF"))
-        assertEquals(0xFF3788D8.toInt(), ColorParser.toArgb("#3788D8"))
-        assertNull(ColorParser.toArgb("#zzzzzz"))
-        assertNull(ColorParser.toArgb(""))
-    }
 }

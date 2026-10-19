@@ -3,7 +3,7 @@ package org.fossify.calendar.caldav
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.net.URL
+import io.ktor.http.Url
 
 class CalDavSyncEngineTest {
 
@@ -33,7 +33,7 @@ class CalDavSyncEngineTest {
     }
 
     private fun resource(uid: String, etag: String): RemoteResource = RemoteResource(
-        url = URL("https://dav.example.com/cal/$uid.ics"),
+        url = Url("https://dav.example.com/cal/$uid.ics"),
         etag = etag,
         ical = "BEGIN:VCALENDAR\r\n" +
             "VERSION:2.0\r\n" +
@@ -132,7 +132,7 @@ class CalDavSyncEngineTest {
     @Test
     fun `ignores remote resources that cannot be parsed`() {
         val repository = InMemoryRepository()
-        val broken = RemoteResource(URL("https://dav.example.com/cal/x.ics"), "\"x\"", "garbage")
+        val broken = RemoteResource(Url("https://dav.example.com/cal/x.ics"), "\"x\"", "garbage")
         val report = CalDavSyncEngine(repository).applyRemoteState("cal-url", listOf(broken))
         assertEquals(0, report.inserted)
         assertTrue(repository.items.isEmpty())

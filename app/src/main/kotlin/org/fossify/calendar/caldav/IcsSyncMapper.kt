@@ -5,9 +5,6 @@ import net.fortuna.ical4j.model.Component
 import net.fortuna.ical4j.model.Property
 import net.fortuna.ical4j.model.component.VEvent
 import net.fortuna.ical4j.model.component.VToDo
-import net.fortuna.ical4j.model.property.Completed
-import net.fortuna.ical4j.model.property.PercentComplete
-import java.time.Instant
 
 /**
  * Plain representation of a synced item, independent of the Room event model.
@@ -32,63 +29,59 @@ data class SyncedItem(
 
 object IcsSyncMapper {
 
+    private fun <T : Property> Component.prop(name: String): T? =
+        getProperty<T>(name).orElse(null)
+
     fun toSyncedItem(resource: RemoteResource): SyncedItem? {
         val calendar = try {
             CalendarParserPool.parse(resource.ical)
         } catch (_: Exception) {
             return null
         }
-        val event = calendar.getComponent<Component>(Component.VEVENT) as? VEvent
-        val todo = calendar.getComponent<Component>(Component.VTODO) as? VToDo
-        val component = event ?: todo ?: return null
-        val uid = component.getProperty<Property>(Property.UID)?.value ?: return null
+        val event = calendar.getComponents().filterIsInstance<VEvent>().firstOrNull()
+        val todo = calendar.getComponents().filterIsInstance<VToDo>().firstOrNull()
+        val component = (event ?: todo) ?: return null
+        val uid = component.prop<Property>(Property.UID)?.value ?: return null
         val isTask = component is VToDo
-        val start = component.getProperty<Property>(Property.DTSTART)?.value
-        val end = (if (isTask) {
-            component.getProperty<Property>(Property.DUE)?.value
+        val start = component.prop<Property>(Property.DTSTART)?.value
+        val end = if (isTask) {
+            component.prop<Property>(Property.DUE)?.value
         } else {
-            component.getProperty<Property>(Property.DTEND)?.value
-        })
-        val status = component.getProperty<Property>(Property.STATUS)?.value
-        val percentComplete = (component.getProperty<PercentComplete>(Property.PERCENT_COMPLETE))
+            component.prop<Property>(Property.DTEND)?.value
+        }
+        val status = component.prop<Property>(Property.STATUS)?.value
+        val percentComplete = component.prop<Property>(Property.PERCENT_COMPLETE)
             ?.value?.toIntOrNull()
-        val allDay = start?.let { isDateValue(it) } ?: false
+        val allDay = start?.let { Timestamps.isDateValue(it) } ?: false
         return SyncedItem(
             uid = uid,
             resourceUrl = resource.url.toString(),
             etag = resource.etag,
             isTask = isTask,
-            title = component.getProperty<Property>(Property.SUMMARY)?.value.orEmpty(),
-            description = component.getProperty<Property>(Property.DESCRIPTION)?.value.orEmpty(),
+            title = component.prop<Property>(Property.SUMMARY)?.value.orEmpty(),
+            description = component.prop<Property>(Property.DESCRIPTION)?.value.orEmpty(),
             startTimestamp = start?.let { Timestamps.parse(it) },
             endTimestamp = end?.let { Timestamps.parse(it) },
             allDay = allDay,
-            location = component.getProperty<Property>(Property.LOCATION)?.value.orEmpty(),
+            location = component.prop<Property>(Property.LOCATION)?.value.orEmpty(),
             completed = isTask && (status == "COMPLETED" || percentComplete == 100),
             percentComplete = percentComplete,
-            recurrenceRule = component.getProperty<Property>(Property.RRULE)?.value,
-            lastModified = component.getProperty<Property>(Property.LAST_MODIFIED)?.value
+            recurrenceRule = component.prop<Property>(Property.RRULE)?.value,
+            lastModified = component.prop<Property>(Property.LAST_MODIFIED)?.value
                 ?.let { Timestamps.parse(it) },
         )
     }
-
-    private fun isDateValue(value: String): Boolean =
-        Regex("^\\d{8}$").matches(value.trim())
 }
 
 object Timestamps {
 
+    fun isDateValue(value: String): Boolean = Regex("^\\d{8}$").matches(value.trim())
+
     fun parse(value: String): Long? {
-        val trimmed = value.trim().substringBefore("T").let { datePart ->
-            if (value.contains("T")) {
-                "$datePart${value.substring(value.indexOf('T'))}"
-            } else {
-                datePart
-            }
-        }
+        val trimmed = value.trim()
         return try {
             when {
-                Regex("^\\d{8}$").matches(trimmed) -> {
+                isDateValue(trimmed) -> {
                     val date = java.time.LocalDate.of(
                         trimmed.substring(0, 4).toInt(),
                         trimmed.substring(4, 6).toInt(),
