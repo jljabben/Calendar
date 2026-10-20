@@ -87,6 +87,7 @@ class RoomSyncRepository(
         applyRepetition(mapped)
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun Event.applyRepetition(mapped: SyncedItem) {
         val rule = mapped.recurrenceRule
         if (rule.isNullOrBlank()) {

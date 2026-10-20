@@ -19,6 +19,7 @@ import java.io.IOException
  * failure is caught, logged to the sync log file and reported through
  * the result, so a broken server response can never crash the app.
  */
+@Suppress("TooGenericExceptionCaught")
 class DirectCalDavSyncer(private val context: Context) {
 
     private val helper = DirectCalDavHelper(context)

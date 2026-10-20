@@ -80,6 +80,7 @@ import org.fossify.commons.dialogs.SelectAlarmSoundDialog
 import org.fossify.commons.extensions.beGone
 import org.fossify.commons.extensions.beGoneIf
 import org.fossify.commons.extensions.beVisibleIf
+import org.fossify.commons.extensions.getAlertDialogBuilder
 import org.fossify.commons.extensions.checkAppIconColor
 import org.fossify.commons.extensions.formatMinutesToTimeString
 import org.fossify.commons.extensions.getAppIconColors
@@ -444,6 +445,7 @@ class SettingsActivity : SimpleActivity() {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun showCalendarPicker() = binding.apply {
         val oldCalendarIds = config.getSyncedCalendarIdsAsList()
 
