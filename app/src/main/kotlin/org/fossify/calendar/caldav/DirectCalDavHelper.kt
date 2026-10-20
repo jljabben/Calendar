@@ -104,6 +104,7 @@ class DirectCalDavHelper(private val context: Context) {
 
         private const val DIGEST_BYTES = 4
             private const val BYTE_MASK = 0xFF
+            private const val BITS_PER_BYTE = 8
             private const val ID_MODULUS = 1_000_000
 
             fun syntheticCalendarId(url: Url): Int {
@@ -111,7 +112,7 @@ class DirectCalDavHelper(private val context: Context) {
                     .digest(url.toString().toByteArray())
                 var positive = 0
                 for (i in 0 until DIGEST_BYTES) {
-                    positive = (positive shl 8) or (digest[i].toInt() and BYTE_MASK)
+                    positive = (positive shl BITS_PER_BYTE) or (digest[i].toInt() and BYTE_MASK)
                 }
                 return -(positive % ID_MODULUS) + DIRECT_CALENDAR_ID_THRESHOLD
             }
