@@ -147,7 +147,9 @@ class CalDavClient(private val account: DavAccount) {
                 principalHref = response.get(CurrentUserPrincipal::class.java)?.href
             }
         }
-        return principalHref?.let { Url(it) } ?: baseUrl
+        return principalHref
+            ?.let { DavHrefResolver.resolve(baseUrl, it) }
+            ?: baseUrl
     }
 
     private suspend fun findCalendarHomeSet(client: HttpClient, principalUrl: Url): Url {
@@ -158,7 +160,9 @@ class CalDavClient(private val account: DavAccount) {
                 homeSetHref = response.get(CalendarHomeSet::class.java)?.hrefs?.firstOrNull()
             }
         }
-        return homeSetHref?.let { Url(it) } ?: principalUrl
+        return homeSetHref
+            ?.let { DavHrefResolver.resolve(principalUrl, it) }
+            ?: principalUrl
     }
 
     companion object {
