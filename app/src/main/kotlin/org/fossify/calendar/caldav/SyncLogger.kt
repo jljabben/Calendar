@@ -18,7 +18,7 @@ object SyncLogger {
     private const val LOG_FILE = "direct_caldav_sync.log"
     private const val MAX_LOG_BYTES = 256 * 1024
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")
     fun logError(context: Context, message: String, throwable: Throwable? = null) {
         Log.e(TAG, message, throwable)
         try {
@@ -41,7 +41,8 @@ object SyncLogger {
                 file.delete()
             }
             file.appendText(entry)
-        } catch (ignored: Throwable) {
+        } catch (t: Throwable) {
+            Log.w(TAG, "Writing the sync log itself failed", t)
         }
     }
 
@@ -56,7 +57,8 @@ object SyncLogger {
     fun clearLog(context: Context) {
         try {
             logFile(context).delete()
-        } catch (ignored: Throwable) {
+        } catch (t: Throwable) {
+            Log.w(TAG, "Clearing the sync log failed", t)
         }
     }
 
