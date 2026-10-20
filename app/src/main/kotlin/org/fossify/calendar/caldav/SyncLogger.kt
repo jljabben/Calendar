@@ -65,4 +65,6 @@ object SyncLogger {
 
     private fun logFile(context: Context): File =
         File(context.filesDir, LOG_FILE)
+
+    fun logFileForSharing(context: Context): File = logFile(context)
 }

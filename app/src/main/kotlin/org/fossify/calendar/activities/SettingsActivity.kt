@@ -2,6 +2,10 @@ package org.fossify.calendar.activities
 
 import android.app.TimePickerDialog
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import androidx.core.content.FileProvider
 import android.content.Intent
 import android.media.AudioManager
 import android.media.RingtoneManager
@@ -410,11 +414,52 @@ class SettingsActivity : SimpleActivity() {
             val log = org.fossify.calendar.caldav.SyncLogger.readLog(this@SettingsActivity)
             runOnUiThread {
                 val message = log.ifEmpty { getString(R.string.direct_sync_log_empty) }
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 getAlertDialogBuilder()
                     .setTitle(R.string.direct_sync_log_title)
                     .setMessage(message)
-                    .setPositiveButton(org.fossify.commons.R.string.ok, null)
+                    .setPositiveButton(org.fossify.commons.R.string.copy_to_clipboard) { _, _ ->
+                        clipboard.setPrimaryClip(
+                            ClipData.newPlainText(
+                                getString(R.string.direct_sync_log_title),
+                                message,
+                            ),
+                        )
+                        toast(org.fossify.commons.R.string.value_copied_to_clipboard)
+                    }
+                    .setNeutralButton(org.fossify.commons.R.string.share) { _, _ ->
+                        shareSyncLogFile()
+                    }
+                    .setNegativeButton(org.fossify.commons.R.string.ok, null)
                     .show()
+            }
+        }
+    }
+
+    private fun shareSyncLogFile() {
+        ensureBackgroundThread {
+            try {
+                val logFile = org.fossify.calendar.caldav.SyncLogger.logFileForSharing(this)
+                val uri = FileProvider.getUriForFile(
+                    this,
+                    "$packageName.provider",
+                    logFile,
+                )
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                runOnUiThread {
+                    startActivity(
+                        Intent.createChooser(shareIntent, getString(R.string.direct_sync_log_title)),
+                    )
+                }
+            } catch (t: Throwable) {
+                org.fossify.calendar.caldav.SyncLogger.logError(this, "Sharing the sync log failed", t)
+                runOnUiThread {
+                    toast(org.fossify.commons.R.string.error)
+                }
             }
         }
     }
