@@ -436,6 +436,7 @@ class SettingsActivity : SimpleActivity() {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun shareSyncLogFile() {
         ensureBackgroundThread {
             try {
