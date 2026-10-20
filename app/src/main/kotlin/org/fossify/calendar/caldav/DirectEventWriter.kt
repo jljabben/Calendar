@@ -34,7 +34,6 @@ import java.util.UUID
 object DirectEventWriter {
 
     private const val PROD_ID = "-//Fossify//Calendar//EN"
-    private const val NO_DURATION = 0L
     private const val PERCENT_COMPLETE_DONE = 100
     private val UTC_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
 

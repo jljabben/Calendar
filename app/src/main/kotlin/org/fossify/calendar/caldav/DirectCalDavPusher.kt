@@ -1,6 +1,6 @@
 package org.fossify.calendar.caldav
 
-import at.bitfire.dav4jvm.DavResource
+import at.bitfire.dav4jvm.ktor.DavResource
 import at.bitfire.dav4jvm.ktor.exception.PreconditionFailedException
 import at.bitfire.dav4jvm.property.webdav.GetETag
 import io.ktor.http.ContentType
@@ -9,6 +9,7 @@ import io.ktor.http.Url
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import io.ktor.http.isSuccess
+import android.util.Log
 import kotlinx.coroutines.runBlocking
 import java.util.UUID
 
@@ -50,6 +51,7 @@ class DirectCalDavPusher(private val account: DavAccount) {
                 }
             }
         } catch (e: PreconditionFailedException) {
+            Log.i(TAG, "PUT of $target conflicted with a remote change")
             conflict = true
         }
         PushResult(target, newEtag, conflict)
@@ -63,6 +65,7 @@ class DirectCalDavPusher(private val account: DavAccount) {
                 additionalHeaders = buildHeaders(currentEtag),
             ) { }
         } catch (e: PreconditionFailedException) {
+            Log.i(TAG, "DELETE of $resourceUrl conflicted with a remote change")
             conflict = true
         }
         PushResult(resourceUrl, null, conflict)
@@ -79,7 +82,8 @@ class DirectCalDavPusher(private val account: DavAccount) {
         return Url("$base/$uid.ics")
     }
 
-    companion object {
+    private companion object {
+        const val TAG = "DirectCalDavPusher"
         const val MIME_ICS = "text/calendar"
     }
 }

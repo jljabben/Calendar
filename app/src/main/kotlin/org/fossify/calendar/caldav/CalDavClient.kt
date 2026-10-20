@@ -46,6 +46,7 @@ data class RemoteResource(
  * CalDAV access layer built on dav4jvm (bitfire SMC, the DAVx5 authors).
  * Handles discovery, calendar listing and calendar-query REPORTs.
  */
+@Suppress("TooManyFunctions")
 class CalDavClient(private val account: DavAccount) {
 
     fun createPublicHttpClient(): HttpClient = createHttpClient()
