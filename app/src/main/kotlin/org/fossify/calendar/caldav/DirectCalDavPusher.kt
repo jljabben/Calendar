@@ -51,7 +51,7 @@ class DirectCalDavPusher(private val account: DavAccount) {
                 }
             }
         } catch (e: PreconditionFailedException) {
-            Log.i(TAG, "PUT of $target conflicted with a remote change")
+            Log.i(TAG, "PUT of $target conflicted with a remote change: ${e.message}")
             conflict = true
         }
         PushResult(target, newEtag, conflict)
@@ -65,7 +65,7 @@ class DirectCalDavPusher(private val account: DavAccount) {
                 additionalHeaders = buildHeaders(currentEtag),
             ) { }
         } catch (e: PreconditionFailedException) {
-            Log.i(TAG, "DELETE of $resourceUrl conflicted with a remote change")
+            Log.i(TAG, "DELETE of $resourceUrl conflicted with a remote change: ${e.message}")
             conflict = true
         }
         PushResult(resourceUrl, null, conflict)
