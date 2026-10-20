@@ -5,6 +5,7 @@ import io.ktor.http.Url
 import org.fossify.calendar.extensions.eventsDB
 import org.fossify.calendar.helpers.FLAG_ALL_DAY
 import org.fossify.calendar.helpers.FLAG_TASK_COMPLETED
+import org.fossify.calendar.helpers.Parser
 import org.fossify.calendar.helpers.TYPE_EVENT
 import org.fossify.calendar.helpers.TYPE_TASK
 import org.fossify.calendar.models.Event
@@ -13,6 +14,11 @@ import org.fossify.calendar.models.Event
  * SyncRepository implementation on top of the app's Room events table.
  * Remote UIDs are stored in importId, the collection tag in source and
  * the remote ETag in the etag column.
+ *
+ * Items are validated before they are written: the existing view code
+ * assumes positive timestamps and sane repetition values, so importing
+ * e.g. tasks without DTSTART or malformed RRULEs would break event
+ * expansion at render time.
  */
 class RoomSyncRepository(
     private val context: Context,
@@ -21,6 +27,7 @@ class RoomSyncRepository(
 ) : SyncRepository {
 
     private val sourceTag = DirectCalDavHelper.sourceTagFor(calendarUrl)
+    private val parser = Parser()
 
     override fun getItemsForCalendar(calendarUrl: String): List<SyncRepository.StoredItem> =
         context.eventsDB.getEventsAndTasksBySource(sourceTag).map { event ->
@@ -33,11 +40,14 @@ class RoomSyncRepository(
 
     override fun upsertItem(item: SyncRepository.StoredItem) {
         val mapped = item.mapped ?: return
+        if (!isImportable(mapped)) {
+            return
+        }
         val existing = context.eventsDB.getEventOrTaskWithImportId(item.uid, sourceTag)
         val event = existing ?: Event(
             id = null,
-            startTS = 0L,
-            endTS = 0L,
+            startTS = mapped.startTimestamp ?: return,
+            endTS = mapped.endTimestamp ?: mapped.startTimestamp ?: return,
             title = mapped.title,
             importId = item.uid,
             source = sourceTag,
@@ -51,10 +61,22 @@ class RoomSyncRepository(
         context.eventsDB.deleteEvents(listOf(itemId))
     }
 
+    /**
+     * Only import items the app can safely render: they need a start
+     * timestamp and a non-negative duration. Repetition is imported via
+     * the app's RRULE parser; unknown or unparseable rules are ignored
+     * (the item is still imported as a one-time entry).
+     */
+    private fun isImportable(mapped: SyncedItem): Boolean {
+        val start = mapped.startTimestamp ?: return false
+        val end = mapped.endTimestamp ?: start
+        return start > 0 && end >= start
+    }
+
     private fun Event.applyMapped(mapped: SyncedItem, etag: String?, calendarId: Long) {
         title = mapped.title
         description = mapped.description
-        mapped.startTimestamp?.let { startTS = it }
+        startTS = mapped.startTimestamp ?: startTS
         endTS = mapped.endTimestamp ?: startTS
         location = mapped.location
         type = if (mapped.isTask) TYPE_TASK else TYPE_EVENT
@@ -62,6 +84,21 @@ class RoomSyncRepository(
         this.calendarId = calendarId
         lastUpdated = System.currentTimeMillis() / 1000L
         this.etag = etag.orEmpty()
+        applyRepetition(mapped)
+    }
+
+    private fun Event.applyRepetition(mapped: SyncedItem) {
+        val rule = mapped.recurrenceRule
+        if (rule.isNullOrBlank()) {
+            repeatInterval = 0
+            repeatRule = 0
+            repeatLimit = 0L
+            return
+        }
+        val repetition = parser.parseRepeatInterval(rule, startTS)
+        repeatInterval = repetition.repeatInterval
+        repeatRule = repetition.repeatRule
+        repeatLimit = repetition.repeatLimit
     }
 
     private fun mappedFlags(mapped: SyncedItem): Int {

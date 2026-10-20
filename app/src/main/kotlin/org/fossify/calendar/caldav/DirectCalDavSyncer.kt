@@ -53,12 +53,32 @@ class DirectCalDavSyncer(private val context: Context) {
     }
 
     /**
+     * Removes stored direct-sync rows that the views cannot render
+     * (missing or zero timestamps, negative duration). Protects against
+     * legacy rows written before import validation existed.
+     */
+    fun sanitizeStoredItems() {
+        val directEntities = context.calendarsDB.getCalendars()
+            .filter { it.caldavCalendarId <= DirectCalDavHelper.DIRECT_CALENDAR_ID_THRESHOLD }
+        for (entity in directEntities) {
+            val events = context.eventsDB.getEventsAndTasksBySourcePrefix(
+                DirectCalDavHelper.SOURCE_PREFIX + "-" + entity.caldavEmail,
+            )
+            val invalid = events.filter { it.startTS <= 0L || it.endTS < it.startTS }
+            if (invalid.isNotEmpty()) {
+                context.eventsDB.deleteEvents(invalid.mapNotNull { it.id })
+            }
+        }
+    }
+
+    /**
      * Syncs every selected direct calendar. Must be called off the main
      * thread; network calls are blocking within the caller's context.
      */
     fun syncAllSelected(): DirectSyncResult {
         val account = helper.account()
             ?: return DirectSyncResult(0, 0, 0, 0, 0, 0)
+        sanitizeStoredItems()
         val remoteCalendars = try {
             runBlocking { helper.fetchRemoteCalendars() }
         } catch (e: IOException) {

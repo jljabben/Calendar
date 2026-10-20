@@ -105,6 +105,9 @@ interface EventsDao {
     @Query("SELECT * FROM events WHERE source = :source")
     fun getEventsAndTasksBySource(source: String): List<Event>
 
+    @Query("SELECT * FROM events WHERE source LIKE :sourcePrefix || '%'")
+    fun getEventsAndTasksBySourcePrefix(sourcePrefix: String): List<Event>
+
     @Query("SELECT * FROM events WHERE import_id = :importId AND source = :source LIMIT 1")
     fun getEventOrTaskWithImportId(importId: String, source: String): Event?
 
