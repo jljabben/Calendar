@@ -111,6 +111,12 @@ class DirectCalDavSyncer(private val context: Context) {
                 helper.directCalendarTag(calendar),
             ) ?: continue
             try {
+                org.fossify.calendar.caldav.DirectSyncPush(context)
+                    .retryUnpushedEvents(entity)
+            } catch (t: Throwable) {
+                logSyncError("Retrying unpushed events of ${calendar.displayName} failed", t)
+            }
+            try {
                 val report = runBlocking { helper.syncCalendar(calendar, entity.id!!) }
                 inserted += report.inserted
                 updated += report.updated

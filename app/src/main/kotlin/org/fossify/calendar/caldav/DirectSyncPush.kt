@@ -87,6 +87,43 @@ class DirectSyncPush(private val context: Context) {
         }
     }
 
+    /**
+     * Pushes local direct-sync events that were never successfully
+     * uploaded (empty resource_url), e.g. because the device was
+     * offline when they were created. Called at the start of each sync.
+     */
+    fun retryUnpushedEvents(entity: org.fossify.calendar.models.CalendarEntity) {
+        val collectionUrl = collectionUrlFor(entity) ?: return
+        val unpushed = context.eventsDB.getEventsAndTasksBySource(
+            org.fossify.calendar.caldav.DirectCalDavHelper.sourceTagFor(collectionUrl),
+        ).filter { it.resourceUrl.isEmpty() }
+        unpushed.forEach { event ->
+            pushToCollection(event, collectionUrl)
+        }
+    }
+
+    private fun pushToCollection(event: Event, collectionUrl: Url) {
+        val account = DavAccount(
+            config.caldavServerUrl,
+            config.caldavUsername,
+            config.caldavPassword,
+        )
+        val ical = DirectEventWriter.writeEvent(event)
+        val pusher = DirectCalDavPusher(account)
+        val result = try {
+            pusher.putEvent(collectionUrl, null, null, ical)
+        } catch (t: Throwable) {
+            SyncLogger.logError(context, "Retrying push of ${event.importId} failed", t)
+            return
+        }
+        if (result.conflict) {
+            return
+        }
+        event.resourceUrl = result.resourceUrl?.toString().orEmpty()
+        event.etag = result.etag.orEmpty()
+        context.eventsDB.insertOrUpdate(event)
+    }
+
     private fun collectionUrlFor(entity: org.fossify.calendar.models.CalendarEntity): Url? =
         entity.collectionUrl.takeIf { it.isNotEmpty() }?.let { Url(it) }
 

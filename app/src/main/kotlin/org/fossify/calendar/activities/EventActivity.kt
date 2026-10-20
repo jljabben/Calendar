@@ -1624,7 +1624,9 @@ class EventActivity : SimpleActivity() {
         }
 
         val selectedCaldavId = selectedCalendar.caldavCalendarId
-        if (selectedCaldavId != 0) {
+        val isDirectCalendar =
+            selectedCaldavId <= org.fossify.calendar.caldav.DirectCalDavHelper.DIRECT_CALENDAR_ID_THRESHOLD
+        if (selectedCaldavId != 0 && !isDirectCalendar) {
             val caldavCalendar =
                 calDAVHelper.getCalDAVCalendars("", true).firstOrNull { it.id == selectedCaldavId }
             if (caldavCalendar == null || !caldavCalendar.canWrite()) {
@@ -1632,16 +1634,20 @@ class EventActivity : SimpleActivity() {
                 return
             }
             config.lastUsedCaldavCalendarId = selectedCaldavId
+        } else if (isDirectCalendar) {
+            config.lastUsedCaldavCalendarId = selectedCaldavId
         } else {
             config.lastUsedLocalCalendarId = mCalendarId
             config.lastUsedCaldavCalendarId = STORED_LOCALLY_ONLY
         }
 
         val newCalendarId = mCalendarId
-        val newSource = if (selectedCaldavId == 0) {
-            SOURCE_SIMPLE_CALENDAR
-        } else {
-            "$CALDAV-$selectedCaldavId"
+        val newSource = when {
+            isDirectCalendar -> selectedCalendar.collectionUrl.takeIf { it.isNotEmpty() }
+                ?.let { org.fossify.calendar.caldav.DirectCalDavHelper.sourceTagFor(io.ktor.http.Url(it)) }
+                ?: SOURCE_SIMPLE_CALENDAR
+            selectedCaldavId == 0 -> SOURCE_SIMPLE_CALENDAR
+            else -> "$CALDAV-$selectedCaldavId"
         }
         mEventCalendarId = if (selectedCaldavId == 0) STORED_LOCALLY_ONLY else selectedCaldavId
 
