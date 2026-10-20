@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import at.bitfire.dav4jvm.ktor.exception.DavException
 import at.bitfire.dav4jvm.ktor.exception.HttpException
+import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import org.fossify.calendar.extensions.calendarsDB
 import org.fossify.calendar.extensions.eventsDB
