@@ -3,9 +3,7 @@ package org.fossify.calendar.dialogs
 import android.text.TextUtils
 import android.widget.RelativeLayout
 import at.bitfire.dav4jvm.ktor.exception.DavException
-import java.io.IOException
 import at.bitfire.dav4jvm.ktor.exception.HttpException
-import kotlinx.coroutines.runBlocking
 import org.fossify.calendar.R
 import org.fossify.calendar.activities.SimpleActivity
 import org.fossify.calendar.caldav.DirectCalDavHelper
@@ -16,10 +14,12 @@ import org.fossify.calendar.extensions.calDAVHelper
 import org.fossify.calendar.extensions.config
 import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.getAlertDialogBuilder
-import org.fossify.commons.extensions.showErrorToast
 import org.fossify.commons.extensions.setupDialogStuff
+import org.fossify.commons.extensions.showErrorToast
 import org.fossify.commons.extensions.viewBinding
+import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.views.MyAppCompatCheckbox
+import java.io.IOException
 
 class ManageSyncedCalendarsDialog(val activity: SimpleActivity, val callback: () -> Unit) {
     private var prevAccount = ""
@@ -30,22 +30,9 @@ class ManageSyncedCalendarsDialog(val activity: SimpleActivity, val callback: ()
         val ids = activity.config.getSyncedCalendarIdsAsList()
         val calendars = activity.calDAVHelper.getCalDAVCalendars("", true)
 
-        val directCalendars = try {
-            runBlocking { directHelper.fetchRemoteCalendars() }
-        } catch (e: IOException) {
-            activity.showErrorToast(e)
-            emptyList()
-        } catch (e: DavException) {
-            activity.showErrorToast(e)
-            emptyList()
-        } catch (e: HttpException) {
-            activity.showErrorToast(e)
-            emptyList()
-        }
-
         binding.apply {
-            dialogSelectCalendarsPlaceholder.beVisibleIf(calendars.isEmpty() && directCalendars.isEmpty())
-            dialogSelectCalendarsHolder.beVisibleIf(calendars.isNotEmpty() || directCalendars.isNotEmpty())
+            dialogSelectCalendarsPlaceholder.beVisibleIf(calendars.isEmpty())
+            dialogSelectCalendarsHolder.beVisibleIf(calendars.isNotEmpty())
         }
 
         val sorted = calendars.sortedWith(compareBy({ it.accountName }, { it.displayName }))
@@ -57,16 +44,38 @@ class ManageSyncedCalendarsDialog(val activity: SimpleActivity, val callback: ()
             addCalendarItem(true, it.displayName, it.id, ids.contains(it.id))
         }
 
-        if (directCalendars.isNotEmpty()) {
-            addCalendarItem(false, activity.getString(R.string.direct_caldav_account))
-            directCalendars.forEach { remote ->
-                val tag = directHelper.directCalendarTag(remote)
-                addCalendarItem(
-                    isEvent = true,
-                    text = directHelper.calendarLabel(remote),
-                    tag = tag,
-                    shouldCheck = ids.contains(tag),
-                )
+        // fetch direct calendars off the UI thread, then append them to the list
+        ensureBackgroundThread {
+            val directCalendars = try {
+                directHelper.fetchRemoteCalendarsBlocking()
+            } catch (e: IOException) {
+                activity.showErrorToast(e)
+                emptyList()
+            } catch (e: DavException) {
+                activity.showErrorToast(e)
+                emptyList()
+            } catch (e: HttpException) {
+                activity.showErrorToast(e)
+                emptyList()
+            }
+            if (directCalendars.isEmpty()) {
+                return@ensureBackgroundThread
+            }
+            activity.runOnUiThread {
+                if (binding.dialogSelectCalendarsHolder.childCount == 0) {
+                    binding.dialogSelectCalendarsPlaceholder.beVisibleIf(false)
+                    binding.dialogSelectCalendarsHolder.beVisibleIf(true)
+                }
+                addCalendarItem(false, activity.getString(R.string.direct_caldav_account))
+                directCalendars.forEach { remote ->
+                    val tag = directHelper.directCalendarTag(remote)
+                    addCalendarItem(
+                        isEvent = true,
+                        text = directHelper.calendarLabel(remote),
+                        tag = tag,
+                        shouldCheck = ids.contains(tag),
+                    )
+                }
             }
         }
 

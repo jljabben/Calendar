@@ -181,7 +181,7 @@ abstract class EventsDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE events ADD COLUMN etag TEXT NOT NULL DEFAULT ''")
                 database.execSQL(
-                    "CREATE INDEX IF NOT EXISTS index_events_source_type ON events (source, type)"
+                    "CREATE INDEX IF NOT EXISTS `index_events_source_type` ON `events` (`source`, `type`)"
                 )
             }
         }

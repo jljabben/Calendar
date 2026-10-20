@@ -36,7 +36,7 @@ import org.joda.time.DateTimeZone
 import org.joda.time.Weeks
 import java.io.Serializable
 
-@Entity(tableName = "events", indices = [(Index(value = ["id"], unique = true))])
+@Entity(tableName = "events", indices = [(Index(value = ["id"], unique = true)), (Index(value = ["source", "type"]))])
 data class Event(
     @PrimaryKey(autoGenerate = true) var id: Long?,
     @ColumnInfo(name = "start_ts") var startTS: Long = 0L,

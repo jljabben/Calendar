@@ -37,6 +37,9 @@ class DirectCalDavHelper(private val context: Context) {
         return CalDavClient(account).listCalendars()
     }
 
+    fun fetchRemoteCalendarsBlocking(): List<RemoteCalendar> =
+        kotlinx.coroutines.runBlocking { fetchRemoteCalendars() }
+
     fun isDirectCalendar(entity: CalendarEntity): Boolean =
         entity.caldavCalendarId <= DIRECT_CALENDAR_ID_THRESHOLD
 
