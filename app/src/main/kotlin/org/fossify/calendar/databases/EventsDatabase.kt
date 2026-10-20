@@ -24,7 +24,7 @@ import java.util.concurrent.Executors
 
 @Database(
     entities = [Event::class, CalendarEntity::class, Widget::class, Task::class],
-    version = 11
+    version = 12
 )
 @TypeConverters(Converters::class)
 abstract class EventsDatabase : RoomDatabase() {
@@ -65,6 +65,7 @@ abstract class EventsDatabase : RoomDatabase() {
                             .addMigrations(MIGRATION_8_9)
                             .addMigrations(MIGRATION_9_10)
                             .addMigrations(MIGRATION_10_11)
+                            .addMigrations(MIGRATION_11_12)
                             .build()
                         db!!.openHelper.setWriteAheadLoggingEnabled(true)
                     }
@@ -171,6 +172,15 @@ abstract class EventsDatabase : RoomDatabase() {
                     execSQL("INSERT INTO `tasks` SELECT * FROM `_tasks_tmp`")
                     execSQL("DROP TABLE `_tasks_tmp`")
                 }
+            }
+        }
+
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE events ADD COLUMN etag TEXT NOT NULL DEFAULT ''")
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_events_source_type ON events (source, type)"
+                )
             }
         }
 

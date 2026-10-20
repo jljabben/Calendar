@@ -61,6 +61,7 @@ data class Event(
     @ColumnInfo(name = "event_type") var calendarId: Long = LOCAL_CALENDAR_ID,
     @ColumnInfo(name = "parent_id") var parentId: Long = 0,
     @ColumnInfo(name = "last_updated") var lastUpdated: Long = 0L,
+    @ColumnInfo(name = "etag", defaultValue = "") var etag: String = "",
     @ColumnInfo(name = "source") var source: String = SOURCE_SIMPLE_CALENDAR,
     @ColumnInfo(name = "availability") var availability: Int = 0,
     @ColumnInfo(name = "access_level") var accessLevel: Int = CalendarContract.Events.ACCESS_DEFAULT,
