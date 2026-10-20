@@ -68,6 +68,7 @@ data class Event(
     @ColumnInfo(name = "type") var type: Int = TYPE_EVENT,
     @ColumnInfo(name = "status") var status: Int = CalendarContract.Events.STATUS_CONFIRMED,
     @ColumnInfo(name = "etag", defaultValue = "") var etag: String = "",
+    @ColumnInfo(name = "resource_url", defaultValue = "") var resourceUrl: String = "",
 ) : Serializable {
 
     companion object {

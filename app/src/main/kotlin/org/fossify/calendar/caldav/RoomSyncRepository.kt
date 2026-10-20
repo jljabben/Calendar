@@ -84,6 +84,7 @@ class RoomSyncRepository(
         this.calendarId = calendarId
         lastUpdated = System.currentTimeMillis() / 1000L
         this.etag = etag.orEmpty()
+        this.resourceUrl = mapped.resourceUrl
         applyRepetition(mapped)
     }
 

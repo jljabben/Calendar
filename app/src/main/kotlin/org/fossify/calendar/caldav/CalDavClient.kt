@@ -48,6 +48,8 @@ data class RemoteResource(
  */
 class CalDavClient(private val account: DavAccount) {
 
+    fun createPublicHttpClient(): HttpClient = createHttpClient()
+
     private fun createHttpClient(): HttpClient = HttpClient(OkHttp) {
         followRedirects = false
         install(Auth) {

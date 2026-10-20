@@ -73,6 +73,7 @@ class DirectCalDavHelper(private val context: Context) {
             caldavCalendarId = syntheticCalendarId(calendar.url),
             caldavDisplayName = calendar.displayName,
             caldavEmail = calendar.url.host,
+            collectionUrl = calendar.url.toString(),
         )
     }
 

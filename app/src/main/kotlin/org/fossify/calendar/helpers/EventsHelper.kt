@@ -31,6 +31,7 @@ class EventsHelper(val context: Context) {
     private val eventsDB = context.eventsDB
     private val calendarsDB = context.calendarsDB
     private val completedTasksDB = context.completedTasksDB
+    private val directSyncPush = org.fossify.calendar.caldav.DirectSyncPush(context)
 
     fun getCalendars(
         activity: Activity,
@@ -168,6 +169,7 @@ class EventsHelper(val context: Context) {
         if (addToCalDAV && config.caldavSync && event.source != SOURCE_SIMPLE_CALENDAR && event.source != SOURCE_IMPORTED_ICS) {
             context.calDAVHelper.insertCalDAVEvent(event, eventOccurrenceTS)
         }
+        directSyncPush.pushInsert(event)
 
         callback?.invoke(event.id!!)
     }
@@ -182,6 +184,7 @@ class EventsHelper(val context: Context) {
         ensureCalendarVisibility(task, enableCalendar)
         context.updateWidgets()
         context.scheduleNextEventReminder(task, showToasts)
+        directSyncPush.pushInsert(task)
         callback()
     }
 
@@ -227,6 +230,7 @@ class EventsHelper(val context: Context) {
         if (updateAtCalDAV && event.source != SOURCE_SIMPLE_CALENDAR && config.caldavSync) {
             context.calDAVHelper.updateCalDAVEvent(event)
         }
+        directSyncPush.pushUpdate(event)
         callback?.invoke()
     }
 
@@ -369,6 +373,9 @@ class EventsHelper(val context: Context) {
                 eventsWithImportId.forEach {
                     context.calDAVHelper.deleteCalDAVEvent(it)
                 }
+            }
+            eventsWithImportId.forEach {
+                directSyncPush.pushDelete(it)
             }
 
             deleteChildEvents(it as MutableList<Long>, deleteFromCalDAV, updateWidgets)
