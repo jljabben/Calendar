@@ -87,7 +87,7 @@ class RoomSyncRepository(
         applyRepetition(mapped)
     }
 
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun Event.applyRepetition(mapped: SyncedItem) {
         val rule = mapped.recurrenceRule
         if (rule.isNullOrBlank()) {
@@ -104,6 +104,11 @@ class RoomSyncRepository(
         } catch (t: Throwable) {
             // unparsable rules (e.g. INTERVAL=2.0) must never crash the sync;
             // import the item as one-time entry instead
+            android.util.Log.w(
+                "RoomSyncRepository",
+                "Unparsable RRULE '$rule', importing as one-time entry",
+                t,
+            )
             repeatInterval = 0
             repeatRule = 0
             repeatLimit = 0L
