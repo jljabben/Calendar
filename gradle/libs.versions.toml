@@ -24,7 +24,7 @@ androidx-test-ext-truth = "1.7.0"
 commons = "7.1.3"
 #CalDAV
 dav4jvm = "3.0.2"
-ical4j = "4.1.1"
+ical4j = "3.2.19"
 #Desugaring (ical4j needs the Java 8 time API on Android)
 android-desugar = "2.1.5"
 ktor = "3.5.2"

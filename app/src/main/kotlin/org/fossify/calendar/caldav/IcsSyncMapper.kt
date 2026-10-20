@@ -1,7 +1,6 @@
 package org.fossify.calendar.caldav
 
 import net.fortuna.ical4j.model.Calendar
-import net.fortuna.ical4j.model.Component
 import net.fortuna.ical4j.model.Property
 import net.fortuna.ical4j.model.component.CalendarComponent
 import net.fortuna.ical4j.model.component.VEvent
@@ -30,8 +29,8 @@ data class SyncedItem(
 
 object IcsSyncMapper {
 
-    private fun <T : Property> Component.prop(name: String): T? =
-        getProperty<T>(name).orElse(null)
+    private fun Calendar.firstComponent(name: String): CalendarComponent? =
+        getComponents().firstOrNull { it.name.equals(name, ignoreCase = true) }
 
     fun toSyncedItem(resource: RemoteResource): SyncedItem? {
         val calendar = try {
@@ -39,20 +38,19 @@ object IcsSyncMapper {
         } catch (_: Exception) {
             return null
         }
-        val components: List<CalendarComponent> = calendar.getComponents()
-        val event = components.filterIsInstance<VEvent>().firstOrNull()
-        val todo = components.filterIsInstance<VToDo>().firstOrNull()
+        val event = calendar.firstComponent("VEVENT") as? VEvent
+        val todo = calendar.firstComponent("VTODO") as? VToDo
         val component = (event ?: todo) ?: return null
-        val uid = component.prop<Property>(Property.UID)?.value ?: return null
+        val uid = component.getProperty<Property>(Property.UID)?.value ?: return null
         val isTask = component is VToDo
-        val start = component.prop<Property>(Property.DTSTART)?.value
+        val start = component.getProperty<Property>(Property.DTSTART)?.value
         val end = if (isTask) {
-            component.prop<Property>(Property.DUE)?.value
+            component.getProperty<Property>(Property.DUE)?.value
         } else {
-            component.prop<Property>(Property.DTEND)?.value
+            component.getProperty<Property>(Property.DTEND)?.value
         }
-        val status = component.prop<Property>(Property.STATUS)?.value
-        val percentComplete = component.prop<Property>(Property.PERCENT_COMPLETE)
+        val status = component.getProperty<Property>(Property.STATUS)?.value
+        val percentComplete = component.getProperty<Property>(Property.PERCENT_COMPLETE)
             ?.value?.toIntOrNull()
         val allDay = start?.let { Timestamps.isDateValue(it) } ?: false
         return SyncedItem(
@@ -60,16 +58,16 @@ object IcsSyncMapper {
             resourceUrl = resource.url.toString(),
             etag = resource.etag,
             isTask = isTask,
-            title = component.prop<Property>(Property.SUMMARY)?.value.orEmpty(),
-            description = component.prop<Property>(Property.DESCRIPTION)?.value.orEmpty(),
+            title = component.getProperty<Property>(Property.SUMMARY)?.value.orEmpty(),
+            description = component.getProperty<Property>(Property.DESCRIPTION)?.value.orEmpty(),
             startTimestamp = start?.let { Timestamps.parse(it) },
             endTimestamp = end?.let { Timestamps.parse(it) },
             allDay = allDay,
-            location = component.prop<Property>(Property.LOCATION)?.value.orEmpty(),
+            location = component.getProperty<Property>(Property.LOCATION)?.value.orEmpty(),
             completed = isTask && (status == "COMPLETED" || percentComplete == 100),
             percentComplete = percentComplete,
-            recurrenceRule = component.prop<Property>(Property.RRULE)?.value,
-            lastModified = component.prop<Property>(Property.LAST_MODIFIED)?.value
+            recurrenceRule = component.getProperty<Property>(Property.RRULE)?.value,
+            lastModified = component.getProperty<Property>(Property.LAST_MODIFIED)?.value
                 ?.let { Timestamps.parse(it) },
         )
     }
