@@ -1,6 +1,9 @@
 package org.fossify.calendar.caldav
 
 import android.content.Context
+import android.util.Log
+import at.bitfire.dav4jvm.ktor.exception.DavException
+import at.bitfire.dav4jvm.ktor.exception.HttpException
 import kotlinx.coroutines.runBlocking
 import org.fossify.calendar.extensions.calendarsDB
 import org.fossify.calendar.extensions.eventsDB
@@ -14,8 +17,16 @@ import org.fossify.calendar.models.CalendarEntity
  */
 class DirectCalDavSyncer(private val context: Context) {
 
+    private companion object {
+        const val TAG = "DirectCalDavSyncer"
+    }
+
     private val helper = DirectCalDavHelper(context)
     private val config = context.config
+
+    private fun logSyncError(e: Exception) {
+        Log.w(TAG, "Direct CalDAV sync failed: ${e.message}")
+    }
 
     data class DirectSyncResult(
         val calendars: Int,
@@ -49,7 +60,14 @@ class DirectCalDavSyncer(private val context: Context) {
             ?: return DirectSyncResult(0, 0, 0, 0, 0, 0)
         val remoteCalendars = try {
             runBlocking { helper.fetchRemoteCalendars() }
-        } catch (e: Exception) {
+        } catch (e: IOException) {
+            logSyncError(e)
+            return DirectSyncResult(0, 0, 0, 0, 0, 1)
+        } catch (e: DavException) {
+            logSyncError(e)
+            return DirectSyncResult(0, 0, 0, 0, 0, 1)
+        } catch (e: HttpException) {
+            logSyncError(e)
             return DirectSyncResult(0, 0, 0, 0, 0, 1)
         }
 
@@ -74,7 +92,14 @@ class DirectCalDavSyncer(private val context: Context) {
                 updated += report.updated
                 deleted += report.deleted
                 skipped += report.skippedDeletions
-            } catch (e: Exception) {
+            } catch (e: IOException) {
+                logSyncError(e)
+                errors++
+            } catch (e: DavException) {
+                logSyncError(e)
+                errors++
+            } catch (e: HttpException) {
+                logSyncError(e)
                 errors++
             }
         }
