@@ -2,6 +2,9 @@ package org.fossify.calendar.dialogs
 
 import android.text.TextUtils
 import android.widget.RelativeLayout
+import at.bitfire.dav4jvm.ktor.exception.DavException
+import java.io.IOException
+import at.bitfire.dav4jvm.ktor.exception.HttpException
 import kotlinx.coroutines.runBlocking
 import org.fossify.calendar.R
 import org.fossify.calendar.activities.SimpleActivity
@@ -11,13 +14,11 @@ import org.fossify.calendar.databinding.CalendarItemCalendarBinding
 import org.fossify.calendar.databinding.DialogSelectCalendarsBinding
 import org.fossify.calendar.extensions.calDAVHelper
 import org.fossify.calendar.extensions.config
-import org.fossify.commons.extensions.beGoneIf
 import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.getAlertDialogBuilder
-import org.fossify.commons.extensions.toast
+import org.fossify.commons.extensions.showErrorToast
 import org.fossify.commons.extensions.setupDialogStuff
 import org.fossify.commons.extensions.viewBinding
-import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.views.MyAppCompatCheckbox
 
 class ManageSyncedCalendarsDialog(val activity: SimpleActivity, val callback: () -> Unit) {
@@ -31,8 +32,14 @@ class ManageSyncedCalendarsDialog(val activity: SimpleActivity, val callback: ()
 
         val directCalendars = try {
             runBlocking { directHelper.fetchRemoteCalendars() }
-        } catch (e: Exception) {
-            activity.toast(R.string.caldav_connection_failed)
+        } catch (e: IOException) {
+            activity.showErrorToast(e)
+            emptyList()
+        } catch (e: DavException) {
+            activity.showErrorToast(e)
+            emptyList()
+        } catch (e: HttpException) {
+            activity.showErrorToast(e)
             emptyList()
         }
 

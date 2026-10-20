@@ -38,6 +38,8 @@ abstract class EventsDatabase : RoomDatabase() {
     abstract fun TasksDao(): TasksDao
 
     companion object {
+        private const val DATABASE_VERSION_11 = 11
+        private const val DATABASE_VERSION_12 = 12
         private var db: EventsDatabase? = null
 
         fun getInstance(context: Context): EventsDatabase {
@@ -175,7 +177,7 @@ abstract class EventsDatabase : RoomDatabase() {
             }
         }
 
-        private val MIGRATION_11_12 = object : Migration(11, 12) {
+        private val MIGRATION_11_12 = object : Migration(DATABASE_VERSION_11, DATABASE_VERSION_12) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE events ADD COLUMN etag TEXT NOT NULL DEFAULT ''")
                 database.execSQL(

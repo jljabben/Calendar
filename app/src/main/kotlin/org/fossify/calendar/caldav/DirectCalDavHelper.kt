@@ -4,6 +4,7 @@ import android.content.Context
 import io.ktor.http.Url
 import org.fossify.calendar.extensions.calendarsDB
 import org.fossify.calendar.extensions.config
+import org.fossify.calendar.R
 import org.fossify.calendar.helpers.FLAG_ALL_DAY
 import org.fossify.calendar.helpers.FLAG_TASK_COMPLETED
 import org.fossify.calendar.helpers.TYPE_TASK
@@ -45,10 +46,10 @@ class DirectCalDavHelper(private val context: Context) {
     fun calendarLabel(calendar: RemoteCalendar): String {
         val components = buildList {
             if (calendar.supportsEvents) {
-                add(context.getString(org.fossify.commons.R.string.events))
+                add(context.getString(R.string.events))
             }
             if (calendar.supportsTasks) {
-                add(context.getString(org.fossify.commons.R.string.tasks))
+                add(context.getString(R.string.tasks))
             }
         }.joinToString(separator = "/")
         return if (components.isEmpty()) {
@@ -76,7 +77,7 @@ class DirectCalDavHelper(private val context: Context) {
         calendar: RemoteCalendar,
         localCalendarId: Long,
     ): SyncReport {
-        val account = account() ?: throw IllegalStateException("No direct account configured")
+        val account = account() ?: error("No direct account configured")
         val client = CalDavClient(account)
         val remoteResources = buildList {
             if (calendar.supportsEvents) {
@@ -101,15 +102,19 @@ class DirectCalDavHelper(private val context: Context) {
         const val SOURCE_PREFIX = "caldav-direct"
         const val DEFAULT_CALENDAR_COLOR = -14145496
 
-        fun syntheticCalendarId(url: Url): Int {
-            val digest = MessageDigest.getInstance("MD5")
-                .digest(url.toString().toByteArray())
-            val positive = ((digest[0].toInt() and 0xFF) shl 24) or
-                ((digest[1].toInt() and 0xFF) shl 16) or
-                ((digest[2].toInt() and 0xFF) shl 8) or
-                (digest[3].toInt() and 0xFF)
-            return -(positive % 1_000_000) + DIRECT_CALENDAR_ID_THRESHOLD
-        }
+        private const val DIGEST_BYTES = 4
+            private const val BYTE_MASK = 0xFF
+            private const val ID_MODULUS = 1_000_000
+
+            fun syntheticCalendarId(url: Url): Int {
+                val digest = MessageDigest.getInstance("MD5")
+                    .digest(url.toString().toByteArray())
+                var positive = 0
+                for (i in 0 until DIGEST_BYTES) {
+                    positive = (positive shl 8) or (digest[i].toInt() and BYTE_MASK)
+                }
+                return -(positive % ID_MODULUS) + DIRECT_CALENDAR_ID_THRESHOLD
+            }
 
         fun sourceTagFor(url: Url): String =
             "$SOURCE_PREFIX-${url.host}${url.encodedPath.removeSuffix("/").replace('/', '-')}"

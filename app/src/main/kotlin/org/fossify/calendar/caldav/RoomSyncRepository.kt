@@ -54,7 +54,7 @@ class RoomSyncRepository(
     private fun Event.applyMapped(mapped: SyncedItem, etag: String?, calendarId: Long) {
         title = mapped.title
         description = mapped.description
-        startTS = mapped.startTS
+        mapped.startTimestamp?.let { startTS = it }
         endTS = mapped.endTimestamp ?: startTS
         location = mapped.location
         type = if (mapped.isTask) TYPE_TASK else TYPE_EVENT
