@@ -49,7 +49,8 @@ object SyncLogger {
     @Suppress("TooGenericExceptionCaught")
     fun readLog(context: Context): String = try {
         logFile(context).readText()
-    } catch (e: Exception) {
+    } catch (t: Throwable) {
+        Log.w(TAG, "Reading the sync log failed", t)
         "No sync log available."
     }
 
