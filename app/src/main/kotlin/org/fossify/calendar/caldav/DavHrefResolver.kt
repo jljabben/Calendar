@@ -2,6 +2,7 @@ package org.fossify.calendar.caldav
 
 import io.ktor.http.URLBuilder
 import io.ktor.http.Url
+import io.ktor.http.path
 
 /**
  * Resolves href values from WebDAV properties against the URL they were
@@ -17,10 +18,10 @@ object DavHrefResolver {
         }
         val builder = URLBuilder(baseUrl)
         if (trimmed.startsWith("/")) {
-            builder.encodedPath = trimmed
+            builder.path(trimmed)
         } else {
             val basePath = baseUrl.encodedPath.substringBeforeLast('/', "")
-            builder.encodedPath = "$basePath/$trimmed"
+            builder.path("$basePath/$trimmed")
         }
         return builder.build()
     }
