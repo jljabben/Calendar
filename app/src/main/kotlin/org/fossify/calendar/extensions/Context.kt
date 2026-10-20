@@ -38,6 +38,7 @@ import org.fossify.calendar.databinding.DayMonthlyEventViewBinding
 import org.fossify.calendar.helpers.ACTION_MARK_COMPLETED
 import org.fossify.calendar.helpers.AUTOMATIC_BACKUP_REQUEST_CODE
 import org.fossify.calendar.helpers.CalDAVHelper
+import org.fossify.calendar.caldav.DirectCalDavSyncer
 import org.fossify.calendar.helpers.Config
 import org.fossify.calendar.helpers.DAY
 import org.fossify.calendar.helpers.DEFAULT_START_TIME_CURRENT_TIME
@@ -746,9 +747,17 @@ fun Context.getSyncedCalDAVCalendars() =
 fun Context.recheckCalDAVCalendars(scheduleNextCalDAVSync: Boolean, callback: () -> Unit) {
     if (config.caldavSync) {
         ensureBackgroundThread {
+            syncDirectCalDavCalendars()
             calDAVHelper.refreshCalendars(false, scheduleNextCalDAVSync, callback)
             updateWidgets()
         }
+    }
+}
+
+fun Context.syncDirectCalDavCalendars() {
+    val syncer = DirectCalDavSyncer(this)
+    if (syncer.hasSelectedDirectCalendars()) {
+        syncer.syncAllSelected()
     }
 }
 

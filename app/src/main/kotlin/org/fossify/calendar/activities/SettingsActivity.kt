@@ -23,6 +23,7 @@ import org.fossify.calendar.extensions.cancelScheduledAutomaticBackup
 import org.fossify.calendar.extensions.config
 import org.fossify.calendar.extensions.eventsHelper
 import org.fossify.calendar.extensions.getSyncedCalDAVCalendars
+import org.fossify.calendar.extensions.syncDirectCalDavCalendars
 import org.fossify.calendar.extensions.scheduleNextAutomaticBackup
 import org.fossify.calendar.extensions.showImportEventsDialog
 import org.fossify.calendar.extensions.tryImportEventsFromFile
@@ -465,6 +466,7 @@ class SettingsActivity : SimpleActivity() {
                         }
                     }
 
+                    syncDirectCalDavCalendars()
                     syncCalDAVCalendars {
                         calDAVHelper.refreshCalendars(showToasts = true, scheduleNextSync = true) {
                             if (settingsCaldavSync.isChecked) {

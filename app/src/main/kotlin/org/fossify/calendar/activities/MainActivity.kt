@@ -27,6 +27,7 @@ import org.fossify.calendar.extensions.calDAVHelper
 import org.fossify.calendar.extensions.config
 import org.fossify.calendar.extensions.eventsDB
 import org.fossify.calendar.extensions.eventsHelper
+import org.fossify.calendar.extensions.syncDirectCalDavCalendars
 import org.fossify.calendar.extensions.getEventListItems
 import org.fossify.calendar.extensions.getFirstDayOfWeek
 import org.fossify.calendar.extensions.launchNewEventIntent
@@ -653,6 +654,7 @@ class MainActivity : SimpleActivity(), RefreshRecyclerViewListener {
 
     private fun updateCalDAVEvents() {
         ensureBackgroundThread {
+            syncDirectCalDavCalendars()
             calDAVHelper.refreshCalendars(showToasts = false, scheduleNextSync = true) {
                 refreshViewPager()
             }
