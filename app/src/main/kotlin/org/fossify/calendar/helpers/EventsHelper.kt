@@ -48,7 +48,10 @@ class EventsHelper(val context: Context) {
                 val caldavCalendars = activity.calDAVHelper.getCalDAVCalendars("", true)
                 calendars = calendars.filter {
                     val calendar = it
-                    it.caldavCalendarId == 0 || caldavCalendars.firstOrNull { it.id == calendar.caldavCalendarId }
+                    it.caldavCalendarId == 0 ||
+                        // direct-synced calendars are always writable in this app
+                        it.caldavCalendarId <= org.fossify.calendar.caldav.DirectCalDavHelper.DIRECT_CALENDAR_ID_THRESHOLD ||
+                        caldavCalendars.firstOrNull { it.id == calendar.caldavCalendarId }
                         ?.canWrite() == true
                 }.toMutableList() as ArrayList<CalendarEntity>
             }

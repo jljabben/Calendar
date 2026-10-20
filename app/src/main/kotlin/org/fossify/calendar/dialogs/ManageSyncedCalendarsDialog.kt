@@ -16,6 +16,7 @@ import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.getAlertDialogBuilder
 import org.fossify.commons.extensions.setupDialogStuff
 import org.fossify.commons.extensions.showErrorToast
+import org.fossify.commons.extensions.updateTextColors
 import org.fossify.commons.extensions.viewBinding
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.views.MyAppCompatCheckbox
@@ -76,6 +77,9 @@ class ManageSyncedCalendarsDialog(val activity: SimpleActivity, val callback: ()
                         shouldCheck = ids.contains(tag),
                     )
                 }
+                // the dialog applies theme colors only to views present at
+                // setup time; the direct rows are added later, so color them now
+                activity.updateTextColors(binding.dialogSelectCalendarsHolder)
             }
         }
 
