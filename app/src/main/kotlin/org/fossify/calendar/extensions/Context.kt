@@ -757,7 +757,7 @@ fun Context.recheckCalDAVCalendars(scheduleNextCalDAVSync: Boolean, callback: ()
 fun Context.syncDirectCalDavCalendars() {
     val syncer = DirectCalDavSyncer(this)
     if (syncer.hasSelectedDirectCalendars()) {
-        syncer.syncAllSelected()
+        syncer.syncAllSelectedSafely()
     }
 }
 

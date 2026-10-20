@@ -399,6 +399,23 @@ class SettingsActivity : SimpleActivity() {
                 toast(R.string.synchronization_completed)
             }
         }
+        settingsCaldavSyncLogHolder.setOnClickListener {
+            showDirectSyncLog()
+        }
+    }
+
+    private fun showDirectSyncLog() {
+        ensureBackgroundThread {
+            val log = org.fossify.calendar.caldav.SyncLogger.readLog(this@SettingsActivity)
+            runOnUiThread {
+                val message = log.ifEmpty { getString(R.string.direct_sync_log_empty) }
+                getAlertDialogBuilder()
+                    .setTitle(R.string.direct_sync_log_title)
+                    .setMessage(message)
+                    .setPositiveButton(org.fossify.commons.R.string.ok, null)
+                    .show()
+            }
+        }
     }
 
     private fun setupManageSyncedCalendars() = binding.apply {
@@ -445,6 +462,7 @@ class SettingsActivity : SimpleActivity() {
             }
 
             ensureBackgroundThread {
+                try {
                 if (newCalendarIds.isNotEmpty()) {
                     val existingCalendarNames = eventsHelper.getCalendarsSync().map {
                         it.getDisplayTitle().lowercase(Locale.getDefault())
@@ -486,6 +504,16 @@ class SettingsActivity : SimpleActivity() {
 
                 calendarsDB.deleteCalendarsWithCalendarIds(removedCalendarIds)
                 updateDefaultCalendarText()
+                } catch (t: Throwable) {
+                    org.fossify.calendar.caldav.SyncLogger.logError(
+                        this@SettingsActivity,
+                        "Saving synced calendars failed",
+                        t,
+                    )
+                    runOnUiThread {
+                        toast(org.fossify.commons.R.string.error)
+                    }
+                }
             }
         }
     }

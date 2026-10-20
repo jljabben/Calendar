@@ -1,33 +1,28 @@
 package org.fossify.calendar.caldav
 
 import android.content.Context
-import android.util.Log
 import at.bitfire.dav4jvm.ktor.exception.DavException
 import at.bitfire.dav4jvm.ktor.exception.HttpException
-import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import org.fossify.calendar.extensions.calendarsDB
-import org.fossify.calendar.extensions.eventsDB
 import org.fossify.calendar.extensions.config
+import org.fossify.calendar.extensions.eventsDB
 import org.fossify.calendar.models.CalendarEntity
+import java.io.IOException
 
 /**
  * Entry point for syncing directly connected CalDAV accounts.
  * Reconciles the selected remote calendars with the local calendar
  * entities and pulls events and tasks into the Room database.
+ *
+ * Every trigger calls [syncAllSelectedSafely] which never throws: any
+ * failure is caught, logged to the sync log file and reported through
+ * the result, so a broken server response can never crash the app.
  */
 class DirectCalDavSyncer(private val context: Context) {
 
-    private companion object {
-        const val TAG = "DirectCalDavSyncer"
-    }
-
     private val helper = DirectCalDavHelper(context)
     private val config = context.config
-
-    private fun logSyncError(e: Exception) {
-        Log.w(TAG, "Direct CalDAV sync failed: ${e.message}")
-    }
 
     data class DirectSyncResult(
         val calendars: Int,
@@ -46,16 +41,23 @@ class DirectCalDavSyncer(private val context: Context) {
             return false
         }
         val selectedIds = config.getSyncedCalendarIdsAsList()
-        if (selectedIds.none { it <= DirectCalDavHelper.DIRECT_CALENDAR_ID_THRESHOLD }) {
-            return false
-        }
-        return true
+        return selectedIds.any { it <= DirectCalDavHelper.DIRECT_CALENDAR_ID_THRESHOLD }
+    }
+
+    /**
+     * Crash-safe variant for all sync triggers. Catches every throwable,
+     * logs the full stack trace to the sync log and returns a result.
+     */
+    fun syncAllSelectedSafely(): DirectSyncResult = try {
+        syncAllSelected()
+    } catch (t: Throwable) {
+        SyncLogger.logError(context, "Direct CalDAV sync failed", t)
+        DirectSyncResult(0, 0, 0, 0, 0, 1)
     }
 
     /**
      * Removes stored direct-sync rows that the views cannot render
-     * (missing or zero timestamps, negative duration). Protects against
-     * legacy rows written before import validation existed.
+     * (missing or zero timestamps, negative duration).
      */
     fun sanitizeStoredItems() {
         val directEntities = context.calendarsDB.getCalendars()
@@ -82,13 +84,13 @@ class DirectCalDavSyncer(private val context: Context) {
         val remoteCalendars = try {
             runBlocking { helper.fetchRemoteCalendars() }
         } catch (e: IOException) {
-            logSyncError(e)
+            logSyncError("Could not fetch remote calendars", e)
             return DirectSyncResult(0, 0, 0, 0, 0, 1)
         } catch (e: DavException) {
-            logSyncError(e)
+            logSyncError("Could not fetch remote calendars", e)
             return DirectSyncResult(0, 0, 0, 0, 0, 1)
         } catch (e: HttpException) {
-            logSyncError(e)
+            logSyncError("Could not fetch remote calendars", e)
             return DirectSyncResult(0, 0, 0, 0, 0, 1)
         }
 
@@ -113,14 +115,11 @@ class DirectCalDavSyncer(private val context: Context) {
                 updated += report.updated
                 deleted += report.deleted
                 skipped += report.skippedDeletions
-            } catch (e: IOException) {
-                logSyncError(e)
-                errors++
-            } catch (e: DavException) {
-                logSyncError(e)
-                errors++
-            } catch (e: HttpException) {
-                logSyncError(e)
+            } catch (t: Throwable) {
+                logSyncError(
+                    "Syncing calendar ${calendar.displayName} (${calendar.url}) failed",
+                    t,
+                )
                 errors++
             }
         }
@@ -164,8 +163,15 @@ class DirectCalDavSyncer(private val context: Context) {
                 val newId = context.calendarsDB.insertOrUpdate(entity)
                 config.addDisplayCalendar(newId.toString())
             } else if (existing.title != entity.title || existing.color != entity.color) {
-                context.calendarsDB.insertOrUpdate(entity.copy(id = existing.id))
+                val existingId = existing.id
+                if (existingId != null) {
+                    context.calendarsDB.insertOrUpdate(entity.copy(id = existingId))
+                }
             }
         }
+    }
+
+    private fun logSyncError(message: String, throwable: Throwable) {
+        SyncLogger.logError(context, message, throwable)
     }
 }

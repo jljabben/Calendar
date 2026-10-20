@@ -95,10 +95,18 @@ class RoomSyncRepository(
             repeatLimit = 0L
             return
         }
-        val repetition = parser.parseRepeatInterval(rule, startTS)
-        repeatInterval = repetition.repeatInterval
-        repeatRule = repetition.repeatRule
-        repeatLimit = repetition.repeatLimit
+        try {
+            val repetition = parser.parseRepeatInterval(rule, startTS)
+            repeatInterval = repetition.repeatInterval
+            repeatRule = repetition.repeatRule
+            repeatLimit = repetition.repeatLimit
+        } catch (t: Throwable) {
+            // unparsable rules (e.g. INTERVAL=2.0) must never crash the sync;
+            // import the item as one-time entry instead
+            repeatInterval = 0
+            repeatRule = 0
+            repeatLimit = 0L
+        }
     }
 
     private fun mappedFlags(mapped: SyncedItem): Int {
