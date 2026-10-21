@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/caldav_account_holder"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingLeft="@dimen/activity_margin"
+    android:paddingRight="@dimen/activity_margin"
+    android:paddingTop="@dimen/activity_margin">
+
+    <org.fossify.commons.views.MyTextView
+        android:id="@+id/caldav_account_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/caldav_account"
+        android:textSize="@dimen/normal_text_size" />
+
+    <org.fossify.commons.views.MyEditText
+        android:id="@+id/caldav_server_url"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/caldav_server_url"
+        android:inputType="textUri"
+        android:singleLine="true" />
+
+    <org.fossify.commons.views.MyEditText
+        android:id="@+id/caldav_username"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/caldav_username"
+        android:inputType="textEmailAddress"
+        android:singleLine="true" />
+
+    <org.fossify.commons.views.MyEditText
+        android:id="@+id/caldav_password"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/caldav_password"
+        android:inputType="textPassword"
+        android:singleLine="true" />
+
+</LinearLayout>

@@ -99,6 +99,7 @@ android {
         val currentJavaVersionFromLibs = JavaVersion.valueOf(libs.versions.app.build.javaVersion.get().toString())
         sourceCompatibility = currentJavaVersionFromLibs
         targetCompatibility = currentJavaVersionFromLibs
+        isCoreLibraryDesugaringEnabled = true
     }
 
     dependenciesInfo {
@@ -147,6 +148,12 @@ dependencies {
     implementation(libs.androidx.print)
     implementation(libs.bundles.room)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.dav4jvm)
+    coreLibraryDesugaring(libs.android.desugaring)
+    implementation(libs.ical4j)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.auth)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)

@@ -2,6 +2,10 @@ package org.fossify.calendar.activities
 
 import android.app.TimePickerDialog
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import androidx.core.content.FileProvider
 import android.content.Intent
 import android.media.AudioManager
 import android.media.RingtoneManager
@@ -11,6 +15,7 @@ import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
 import org.fossify.calendar.R
 import org.fossify.calendar.databinding.ActivitySettingsBinding
+import org.fossify.calendar.dialogs.CalDavAccountDialog
 import org.fossify.calendar.dialogs.ExportEventsDialog
 import org.fossify.calendar.dialogs.ManageAutomaticBackupsDialog
 import org.fossify.calendar.dialogs.ManageSyncedCalendarsDialog
@@ -22,6 +27,7 @@ import org.fossify.calendar.extensions.cancelScheduledAutomaticBackup
 import org.fossify.calendar.extensions.config
 import org.fossify.calendar.extensions.eventsHelper
 import org.fossify.calendar.extensions.getSyncedCalDAVCalendars
+import org.fossify.calendar.extensions.syncDirectCalDavCalendars
 import org.fossify.calendar.extensions.scheduleNextAutomaticBackup
 import org.fossify.calendar.extensions.showImportEventsDialog
 import org.fossify.calendar.extensions.tryImportEventsFromFile
@@ -78,6 +84,7 @@ import org.fossify.commons.dialogs.SelectAlarmSoundDialog
 import org.fossify.commons.extensions.beGone
 import org.fossify.commons.extensions.beGoneIf
 import org.fossify.commons.extensions.beVisibleIf
+import org.fossify.commons.extensions.getAlertDialogBuilder
 import org.fossify.commons.extensions.checkAppIconColor
 import org.fossify.commons.extensions.formatMinutesToTimeString
 import org.fossify.commons.extensions.getAppIconColors
@@ -205,6 +212,7 @@ class SettingsActivity : SimpleActivity() {
         setupLoopReminders()
         setupSnoozeTime()
         setupCaldavSync()
+        setupCaldavAccount()
         setupManageSyncedCalendars()
         setupDefaultStartTime()
         setupDefaultDuration()
@@ -390,6 +398,73 @@ class SettingsActivity : SimpleActivity() {
         }
     }
 
+    private fun setupCaldavAccount() = binding.apply {
+        settingsCaldavManageAccountHolder.setOnClickListener {
+            CalDavAccountDialog(this@SettingsActivity) {
+                toast(R.string.synchronization_completed)
+            }
+        }
+        settingsCaldavSyncLogHolder.setOnClickListener {
+            showDirectSyncLog()
+        }
+    }
+
+    private fun showDirectSyncLog() {
+        ensureBackgroundThread {
+            val log = org.fossify.calendar.caldav.SyncLogger.readLog(this@SettingsActivity)
+            runOnUiThread {
+                val message = log.ifEmpty { getString(R.string.direct_sync_log_empty) }
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                getAlertDialogBuilder()
+                    .setTitle(R.string.direct_sync_log_title)
+                    .setMessage(message)
+                    .setPositiveButton(org.fossify.commons.R.string.copy_to_clipboard) { _, _ ->
+                        clipboard.setPrimaryClip(
+                            ClipData.newPlainText(
+                                getString(R.string.direct_sync_log_title),
+                                message,
+                            ),
+                        )
+                        toast(org.fossify.commons.R.string.value_copied_to_clipboard)
+                    }
+                    .setNeutralButton(org.fossify.commons.R.string.share) { _, _ ->
+                        shareSyncLogFile()
+                    }
+                    .setNegativeButton(org.fossify.commons.R.string.ok, null)
+                    .show()
+            }
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun shareSyncLogFile() {
+        ensureBackgroundThread {
+            try {
+                val logFile = org.fossify.calendar.caldav.SyncLogger.logFileForSharing(this)
+                val uri = FileProvider.getUriForFile(
+                    this,
+                    "$packageName.provider",
+                    logFile,
+                )
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                runOnUiThread {
+                    startActivity(
+                        Intent.createChooser(shareIntent, getString(R.string.direct_sync_log_title)),
+                    )
+                }
+            } catch (t: Throwable) {
+                org.fossify.calendar.caldav.SyncLogger.logError(this, "Sharing the sync log failed", t)
+                runOnUiThread {
+                    toast(org.fossify.commons.R.string.error)
+                }
+            }
+        }
+    }
+
     private fun setupManageSyncedCalendars() = binding.apply {
         settingsManageSyncedCalendarsHolder.beVisibleIf(config.caldavSync)
         settingsManageSyncedCalendarsHolder.setOnClickListener {
@@ -416,6 +491,7 @@ class SettingsActivity : SimpleActivity() {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun showCalendarPicker() = binding.apply {
         val oldCalendarIds = config.getSyncedCalendarIdsAsList()
 
@@ -434,6 +510,7 @@ class SettingsActivity : SimpleActivity() {
             }
 
             ensureBackgroundThread {
+                try {
                 if (newCalendarIds.isNotEmpty()) {
                     val existingCalendarNames = eventsHelper.getCalendarsSync().map {
                         it.getDisplayTitle().lowercase(Locale.getDefault())
@@ -455,6 +532,7 @@ class SettingsActivity : SimpleActivity() {
                         }
                     }
 
+                    syncDirectCalDavCalendars()
                     syncCalDAVCalendars {
                         calDAVHelper.refreshCalendars(showToasts = true, scheduleNextSync = true) {
                             if (settingsCaldavSync.isChecked) {
@@ -474,6 +552,16 @@ class SettingsActivity : SimpleActivity() {
 
                 calendarsDB.deleteCalendarsWithCalendarIds(removedCalendarIds)
                 updateDefaultCalendarText()
+                } catch (t: Throwable) {
+                    org.fossify.calendar.caldav.SyncLogger.logError(
+                        this@SettingsActivity,
+                        "Saving synced calendars failed",
+                        t,
+                    )
+                    runOnUiThread {
+                        toast(org.fossify.commons.R.string.error)
+                    }
+                }
             }
         }
     }

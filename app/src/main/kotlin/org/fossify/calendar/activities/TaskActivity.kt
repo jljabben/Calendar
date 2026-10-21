@@ -921,7 +921,7 @@ class TaskActivity : SimpleActivity() {
         SelectCalendarDialog(
             activity = this,
             currCalendar = mCalendarId,
-            showCalDAVCalendars = false,
+            showCalDAVCalendars = config.caldavSync,
             showNewCalendarOption = false,
             addLastUsedOneAsFirstOption = false,
             showOnlyWritable = true,

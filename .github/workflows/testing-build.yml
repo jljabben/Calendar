@@ -12,7 +12,42 @@ on:
             - "LICENSE"
             - "README.md"
 
+permissions:
+    contents: write
+
+concurrency:
+    group: testing-build-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
 jobs:
-    call-testing-build-workflow:
-        uses: FossifyOrg/.github/.github/workflows/testing-build.yml@main
-        secrets: inherit
+    build:
+        runs-on: ubuntu-latest
+        if: contains(github.event.pull_request.labels.*.name, 'testers needed')
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-java@v4
+              with:
+                  java-version: 17
+                  distribution: "temurin"
+
+            - name: Clean project
+              run: ./gradlew clean
+
+            - name: Build debug APK
+              run: ./gradlew assembleFossDebug
+
+            - name: Upload debug APK to pre-release
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+              run: |
+                  SHORT_SHA=${HEAD_SHA::7}
+                  VERSION=$(grep '^VERSION_NAME=' gradle.properties | cut -d= -f2)
+                  TAG="testing-${{ github.event.pull_request.number }}"
+                  gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+                      gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+                          --title "Testing builds for PR #${{ github.event.pull_request.number }}" \
+                          --notes "Automated debug builds for PR #${{ github.event.pull_request.number }}. Latest: $SHORT_SHA" \
+                          --prerelease
+                  gh release upload "$TAG" app/build/outputs/apk/foss/debug/*.apk --repo "$GITHUB_REPOSITORY" --clobber

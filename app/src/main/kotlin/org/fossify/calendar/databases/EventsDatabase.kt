@@ -24,7 +24,7 @@ import java.util.concurrent.Executors
 
 @Database(
     entities = [Event::class, CalendarEntity::class, Widget::class, Task::class],
-    version = 11
+    version = 13
 )
 @TypeConverters(Converters::class)
 abstract class EventsDatabase : RoomDatabase() {
@@ -38,6 +38,9 @@ abstract class EventsDatabase : RoomDatabase() {
     abstract fun TasksDao(): TasksDao
 
     companion object {
+        private const val DATABASE_VERSION_11 = 11
+        private const val DATABASE_VERSION_12 = 12
+        private const val DATABASE_VERSION_13 = 13
         private var db: EventsDatabase? = null
 
         fun getInstance(context: Context): EventsDatabase {
@@ -65,6 +68,8 @@ abstract class EventsDatabase : RoomDatabase() {
                             .addMigrations(MIGRATION_8_9)
                             .addMigrations(MIGRATION_9_10)
                             .addMigrations(MIGRATION_10_11)
+                            .addMigrations(MIGRATION_11_12)
+                            .addMigrations(MIGRATION_12_13)
                             .build()
                         db!!.openHelper.setWriteAheadLoggingEnabled(true)
                     }
@@ -171,6 +176,22 @@ abstract class EventsDatabase : RoomDatabase() {
                     execSQL("INSERT INTO `tasks` SELECT * FROM `_tasks_tmp`")
                     execSQL("DROP TABLE `_tasks_tmp`")
                 }
+            }
+        }
+
+        private val MIGRATION_11_12 = object : Migration(DATABASE_VERSION_11, DATABASE_VERSION_12) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE events ADD COLUMN etag TEXT NOT NULL DEFAULT ''")
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_events_source_type` ON `events` (`source`, `type`)"
+                )
+            }
+        }
+
+        private val MIGRATION_12_13 = object : Migration(DATABASE_VERSION_12, DATABASE_VERSION_13) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE events ADD COLUMN resource_url TEXT NOT NULL DEFAULT ''")
+                database.execSQL("ALTER TABLE event_types ADD COLUMN collection_url TEXT NOT NULL DEFAULT ''")
             }
         }
 

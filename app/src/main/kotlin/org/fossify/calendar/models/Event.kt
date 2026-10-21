@@ -36,7 +36,7 @@ import org.joda.time.DateTimeZone
 import org.joda.time.Weeks
 import java.io.Serializable
 
-@Entity(tableName = "events", indices = [(Index(value = ["id"], unique = true))])
+@Entity(tableName = "events", indices = [(Index(value = ["id"], unique = true)), (Index(value = ["source", "type"]))])
 data class Event(
     @PrimaryKey(autoGenerate = true) var id: Long?,
     @ColumnInfo(name = "start_ts") var startTS: Long = 0L,
@@ -67,6 +67,8 @@ data class Event(
     @ColumnInfo(name = "color") var color: Int = 0,
     @ColumnInfo(name = "type") var type: Int = TYPE_EVENT,
     @ColumnInfo(name = "status") var status: Int = CalendarContract.Events.STATUS_CONFIRMED,
+    @ColumnInfo(name = "etag", defaultValue = "") var etag: String = "",
+    @ColumnInfo(name = "resource_url", defaultValue = "") var resourceUrl: String = "",
 ) : Serializable {
 
     companion object {

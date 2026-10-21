@@ -2,8 +2,11 @@ package org.fossify.calendar.dialogs
 
 import android.text.TextUtils
 import android.widget.RelativeLayout
+import at.bitfire.dav4jvm.ktor.exception.DavException
+import at.bitfire.dav4jvm.ktor.exception.HttpException
 import org.fossify.calendar.R
 import org.fossify.calendar.activities.SimpleActivity
+import org.fossify.calendar.caldav.DirectCalDavHelper
 import org.fossify.calendar.databinding.CalendarItemAccountBinding
 import org.fossify.calendar.databinding.CalendarItemCalendarBinding
 import org.fossify.calendar.databinding.DialogSelectCalendarsBinding
@@ -12,16 +15,22 @@ import org.fossify.calendar.extensions.config
 import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.getAlertDialogBuilder
 import org.fossify.commons.extensions.setupDialogStuff
+import org.fossify.commons.extensions.showErrorToast
+import org.fossify.commons.extensions.updateTextColors
 import org.fossify.commons.extensions.viewBinding
+import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.views.MyAppCompatCheckbox
+import java.io.IOException
 
 class ManageSyncedCalendarsDialog(val activity: SimpleActivity, val callback: () -> Unit) {
     private var prevAccount = ""
     private val binding by activity.viewBinding(DialogSelectCalendarsBinding::inflate)
+    private val directHelper = DirectCalDavHelper(activity)
 
     init {
         val ids = activity.config.getSyncedCalendarIdsAsList()
         val calendars = activity.calDAVHelper.getCalDAVCalendars("", true)
+
         binding.apply {
             dialogSelectCalendarsPlaceholder.beVisibleIf(calendars.isEmpty())
             dialogSelectCalendarsHolder.beVisibleIf(calendars.isNotEmpty())
@@ -33,8 +42,45 @@ class ManageSyncedCalendarsDialog(val activity: SimpleActivity, val callback: ()
                 prevAccount = it.accountName
                 addCalendarItem(false, it.accountName)
             }
-
             addCalendarItem(true, it.displayName, it.id, ids.contains(it.id))
+        }
+
+        // fetch direct calendars off the UI thread, then append them to the list
+        ensureBackgroundThread {
+            val directCalendars = try {
+                directHelper.fetchRemoteCalendarsBlocking()
+            } catch (e: IOException) {
+                activity.showErrorToast(e)
+                emptyList()
+            } catch (e: DavException) {
+                activity.showErrorToast(e)
+                emptyList()
+            } catch (e: HttpException) {
+                activity.showErrorToast(e)
+                emptyList()
+            }
+            if (directCalendars.isEmpty()) {
+                return@ensureBackgroundThread
+            }
+            activity.runOnUiThread {
+                if (binding.dialogSelectCalendarsHolder.childCount == 0) {
+                    binding.dialogSelectCalendarsPlaceholder.beVisibleIf(false)
+                    binding.dialogSelectCalendarsHolder.beVisibleIf(true)
+                }
+                addCalendarItem(false, activity.getString(R.string.direct_caldav_account))
+                directCalendars.forEach { remote ->
+                    val tag = directHelper.directCalendarTag(remote)
+                    addCalendarItem(
+                        isEvent = true,
+                        text = directHelper.calendarLabel(remote),
+                        tag = tag,
+                        shouldCheck = ids.contains(tag),
+                    )
+                }
+                // the dialog applies theme colors only to views present at
+                // setup time; the direct rows are added later, so color them now
+                activity.updateTextColors(binding.dialogSelectCalendarsHolder)
+            }
         }
 
         activity.getAlertDialogBuilder()
@@ -73,7 +119,6 @@ class ManageSyncedCalendarsDialog(val activity: SimpleActivity, val callback: ()
                 calendarItemAccount.text = text
             }
         }
-
         binding.dialogSelectCalendarsHolder.addView(itemBinding.root)
     }
 
@@ -89,7 +134,6 @@ class ManageSyncedCalendarsDialog(val activity: SimpleActivity, val callback: ()
                 }
             }
         }
-
         activity.config.caldavSyncedCalendarIds = TextUtils.join(",", calendarIds)
         callback()
     }

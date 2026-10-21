@@ -14,6 +14,7 @@ data class CalendarEntity(
     @ColumnInfo(name = "caldav_calendar_id") var caldavCalendarId: Int = 0,
     @ColumnInfo(name = "caldav_display_name") var caldavDisplayName: String = "",
     @ColumnInfo(name = "caldav_email") var caldavEmail: String = "",
+    @ColumnInfo(name = "collection_url", defaultValue = "") var collectionUrl: String = "",
     @ColumnInfo(name = "type") var type: Int = OTHER_EVENT
 ) {
     fun getDisplayTitle() =
