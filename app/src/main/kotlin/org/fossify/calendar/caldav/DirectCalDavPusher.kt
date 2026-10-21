@@ -72,7 +72,7 @@ class DirectCalDavPusher(private val account: DavAccount) {
     }
 
     private fun buildHeaders(etag: String?): Headers? =
-        etag?.let { headersOf("If-Match", it) }
+        etag?.takeIf { it.isNotEmpty() }?.let { headersOf("If-Match", "\"$it\"") }
 
     private fun defaultResourceUrl(calendarUrl: Url, ical: String): Url {
         val uid = Regex("UID:(\\S+)")

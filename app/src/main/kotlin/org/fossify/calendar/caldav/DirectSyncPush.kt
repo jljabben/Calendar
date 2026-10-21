@@ -66,7 +66,10 @@ class DirectSyncPush(private val context: Context) {
         if (!isDirectEvent(event)) {
             return
         }
-        val url = resourceUrlFor(event) ?: return
+        val url = resourceUrlFor(event) ?: run {
+            // never uploaded (e.g. created offline, then deleted): nothing to delete remotely
+            return
+        }
         val account = DavAccount(
             config.caldavServerUrl,
             config.caldavUsername,
@@ -96,7 +99,7 @@ class DirectSyncPush(private val context: Context) {
         val collectionUrl = collectionUrlFor(entity) ?: return
         val unpushed = context.eventsDB.getEventsAndTasksBySource(
             org.fossify.calendar.caldav.DirectCalDavHelper.sourceTagFor(collectionUrl),
-        ).filter { it.resourceUrl.isEmpty() }
+        ).filter { it.resourceUrl.isEmpty() && !it.importId.startsWith(PROVIDER_TAG) }
         unpushed.forEach { event ->
             pushToCollection(event, collectionUrl)
         }
@@ -122,6 +125,10 @@ class DirectSyncPush(private val context: Context) {
         event.resourceUrl = result.resourceUrl?.toString().orEmpty()
         event.etag = result.etag.orEmpty()
         context.eventsDB.insertOrUpdate(event)
+    }
+
+    private companion object {
+        const val PROVIDER_TAG = "Caldav-"
     }
 
     private fun collectionUrlFor(entity: org.fossify.calendar.models.CalendarEntity): Url? =
